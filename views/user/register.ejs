@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= typeof title !== 'undefined' ? title : 'Register' %> - Al-cimfa</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style2.css">
+  <link href="https://fonts.cdnfonts.com/css/manrope" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    .register-wrapper {
+      max-width: 650px;
+      margin: 40px auto;
+      background: white;
+      padding: 35px 40px;
+      border-radius: 12px;
+      box-shadow: 0 5px 25px rgba(0, 0, 0, 0.1);
+    }
+    .form-title {
+      text-align: center;
+      color: #2a5298;
+      margin-bottom: 10px;
+      font-size: 26px;
+    }
+    .form-subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 25px;
+      font-size: 14px;
+    }
+    .info-note {
+      background: #f0f6ff;
+      border-left: 4px solid #2a5298;
+      padding: 12px 15px;
+      margin-bottom: 25px;
+      border-radius: 4px;
+      font-size: 13px;
+      color: #444;
+    }
+    .info-note i { color: #2a5298; margin-right: 8px; }
+    .input-container { margin-bottom: 18px; }
+    .input-container label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+      color: #333;
+      font-size: 14px;
+    }
+    .input-wrapper {
+      position: relative;
+    }
+    .input-wrapper i {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #2a5298;
+    }
+    .input-wrapper input, .input-wrapper select {
+      width: 100%;
+      padding: 10px 12px 10px 38px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+      box-sizing: border-box;
+    }
+    .input-wrapper input:focus, .input-wrapper select:focus {
+      outline: none;
+      border-color: #2a5298;
+    }
+    .form-row {
+      display: flex;
+      gap: 15px;
+    }
+    .form-row .input-container {
+      flex: 1;
+    }
+    .btn-submit {
+      width: 100%;
+      background: #2a5298;
+      color: white;
+      padding: 13px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 15px;
+      transition: background 0.3s;
+      margin-top: 10px;
+    }
+    .btn-submit:hover {
+      background: #1f3e72;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <%- include('../partials/header2') %>
+
+  <!-- Main Content -->
+  <main style="padding: 20px 0;">
+    <section class="page-header">
+      <div class="container">
+        <h1>Portal Registration</h1>
+        <p>Register as a Student or Parent to access academic results and report cards</p>
+      </div>
+    </section>
+
+    <div class="container">
+      <div class="register-wrapper">
+        <h2 class="form-title">Create Account</h2>
+        <p class="form-subtitle">Link your account to your student enrollment record</p>
+
+        <% if (typeof error !== 'undefined' && error) { %>
+          <div style="background:#f8d7da; color:#721c24; padding:12px 15px; border-radius:6px; margin-bottom:20px; font-size:14px;">
+            ❌ <%= error %>
+          </div>
+        <% } %>
+
+        <div class="info-note">
+          <i class="fa fa-info-circle"></i>
+          <strong>Note:</strong> You must provide the valid <strong>Registration Number</strong> (e.g. <code>ALC/2024/001</code>) issued during student admission to link your results.
+        </div>
+
+        <form action="/user/register" method="POST">
+          <div class="input-container">
+            <label for="role">Account Type *</label>
+            <div class="input-wrapper">
+              <i class="fa fa-user-tag"></i>
+              <select id="role" name="role" required>
+                <option value="student">Student Account</option>
+                <option value="parent">Parent Account</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="input-container">
+              <label for="name">Full Name *</label>
+              <div class="input-wrapper">
+                <i class="fa fa-user"></i>
+                <input type="text" id="name" name="name" placeholder="e.g. Fatima Abubakar" required>
+              </div>
+            </div>
+
+            <div class="input-container">
+              <label for="email">Email Address *</label>
+              <div class="input-wrapper">
+                <i class="fa fa-envelope"></i>
+                <input type="email" id="email" name="email" placeholder="e.g. fatima@example.com" required>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="input-container">
+              <label for="regNumber">Student Registration Number *</label>
+              <div class="input-wrapper">
+                <i class="fa fa-id-card"></i>
+                <input type="text" id="regNumber" name="regNumber" placeholder="e.g. ALC/2024/001" required>
+              </div>
+            </div>
+
+            <div class="input-container">
+              <label for="phoneNumber">Phone Number (Optional)</label>
+              <div class="input-wrapper">
+                <i class="fa fa-phone"></i>
+                <input type="tel" id="phoneNumber" name="phoneNumber" placeholder="e.g. +234 800 000 0000">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="input-container">
+              <label for="password">Password (minimum 6 characters) *</label>
+              <div class="input-wrapper">
+                <i class="fa fa-lock"></i>
+                <input type="password" id="password" name="password" placeholder="Enter password" minlength="6" required>
+              </div>
+            </div>
+
+            <div class="input-container">
+              <label for="confirmPassword">Confirm Password *</label>
+              <div class="input-wrapper">
+                <i class="fa fa-check-double"></i>
+                <input type="password" id="confirmPassword" name="confirmPassword" placeholder="Confirm password" minlength="6" required>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-submit">
+            <i class="fa fa-user-plus"></i> Create Account
+          </button>
+
+          <p style="text-align: center; margin-top: 20px; color: #666; font-size: 14px;">
+            Already have an account? <a href="/user/login" style="color: #2a5298; font-weight: 600;">Login here</a>
+          </p>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <%- include('../partials/footer2') %>
+</body>
+</html>

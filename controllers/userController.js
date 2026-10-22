@@ -1,5 +1,6 @@
 import User from "../models/userModel.js";
 import Student from "../models/studentModel.js";
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 // @desc    Login user
@@ -10,22 +11,68 @@ export const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select("+password");
     if (!user) {
-      return res.render("login", { error: "Invalid email or password" });
+      if (req.accepts("html") && !req.is("json")) {
+        return res.render("user/login", { error: "Invalid email or password", title: "User Login" });
+      }
+      return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    if (!user.isActive) {
+      if (req.accepts("html") && !req.is("json")) {
+        return res.render("user/login", { error: "Account is deactivated", title: "User Login" });
+      }
+      return res.status(403).json({ message: "Account is deactivated" });
+    }
+
+    const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.render("login", { error: "Invalid email or password" });
+      if (req.accepts("html") && !req.is("json")) {
+        return res.render("user/login", { error: "Invalid email or password", title: "User Login" });
+      }
+      return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    // Successful login
-    req.session.user = user; // store user in session
-    res.redirect("/user/dashboard"); // no 'return' needed if it's the last line
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    await user.updateLastLogin();
+
+    if (req.session) {
+      req.session.user = {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      };
+      req.session.userToken = token;
+    }
+
+    if (req.accepts("html") && !req.is("json")) {
+      return res.redirect("/user/dashboard");
+    }
+
+    return res.json({
+      message: "Login successful",
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
   } catch (err) {
     console.error(err);
-    res.render("login", { error: "Something went wrong" });
+    if (req.accepts("html") && !req.is("json")) {
+      return res.render("user/login", { error: "Something went wrong", title: "User Login" });
+    }
+    return res.status(500).json({ message: err.message });
   }
 };
 

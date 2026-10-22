@@ -7,7 +7,7 @@ import {
 } from "../controllers/studentController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
-
+import { upload } from "../config/cloudinary.js";
 
 const router = express.Router();
 
@@ -15,6 +15,7 @@ const router = express.Router();
 router.post(
   "/",
   protect,
+  upload.single("photo"),
   addStudent
 );
 
@@ -25,6 +26,7 @@ router.get("/", protect, getStudents);
 router.put(
   "/:id",
   protect,
+  upload.single("photo"),
   updateStudent
 );
 

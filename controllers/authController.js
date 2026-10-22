@@ -1,4 +1,6 @@
 import Admin from "../models/adminModel.js";
+import User from "../models/userModel.js";
+import Student from "../models/studentModel.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
@@ -9,7 +11,7 @@ import jwt from "jsonwebtoken";
 export const registerUser = async (req, res) => {
   try {
     // Ensure only admins can register users
-    if (!req.user || req.user.role !== "admin") {
+    if (!req.admin && (!req.user || req.user.role !== "admin")) {
       return res.status(403).json({
         message: "Access denied. Only admin can register new users."
       });

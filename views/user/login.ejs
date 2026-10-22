@@ -99,9 +99,16 @@
           <div class="check-form-container">
             <h2>Student Result Portal</h2>
             <p class="form-description">Login as a Student or Parent to access your results.</p>
- <% if (error) { %>
-      <div class="alert alert-error"><%= error %></div>
-    <% } %>
+  <% if (typeof success !== 'undefined' && success) { %>
+      <div class="alert alert-success" style="background:#d4edda; color:#155724; padding:10px 15px; border-radius:5px; margin-bottom:15px;">
+        ✅ <%= success %>
+      </div>
+  <% } %>
+  <% if (typeof error !== 'undefined' && error) { %>
+      <div class="alert alert-error" style="background:#f8d7da; color:#721c24; padding:10px 15px; border-radius:5px; margin-bottom:15px;">
+        ❌ <%= error %>
+      </div>
+  <% } %>
 
             <!-- Role Tabs -->
             <div class="role-tabs">
@@ -134,7 +141,7 @@
 
               <button type="submit">Login</button>
               <p style="text-align: center; margin-top: 15px; color: #777;">
-                For new accounts, please contact the school administrator.
+                Don't have an account yet? <a href="/user/register" style="color: #2a5298; font-weight: 600;">Register here</a>
               </p>
             </form>
 
@@ -159,7 +166,7 @@
 
               <button type="submit">Login</button>
               <p style="text-align: center; margin-top: 15px; color: #777;">
-                For new accounts, please contact the school administrator.
+                Don't have an account yet? <a href="/user/register" style="color: #2a5298; font-weight: 600;">Register here</a>
               </p>
             </form>
           </div>

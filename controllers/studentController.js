@@ -1,4 +1,5 @@
 import Student from "../models/studentModel.js";
+import { uploadToCloudinary } from "../config/cloudinary.js";
 
 // @desc Add new student
 // @route POST /admin/students/add
@@ -28,8 +29,13 @@ export const addStudent = async (req, res) => {
 
     // ⭐ If a profile picture is uploaded
     let profilePhotoUrl = null;
-    if (req.file && req.file.path) {
-      profilePhotoUrl = req.file.path; // Cloudinary gives the full URL
+    if (req.file) {
+      if (req.file.buffer) {
+        const uploadRes = await uploadToCloudinary(req.file.buffer, "students");
+        profilePhotoUrl = uploadRes.secure_url;
+      } else if (req.file.path) {
+        profilePhotoUrl = req.file.path;
+      }
     }
 
     const student = await Student.create({
@@ -76,8 +82,17 @@ export const updateStudent = async (req, res) => {
     let updateData = { ...req.body };
 
     // ⭐ If new profile photo uploaded, replace old one
-    if (req.file && req.file.path) {
-      updateData.profilePhoto = req.file.path;
+    if (req.file) {
+      if (req.file.buffer) {
+        const uploadRes = await uploadToCloudinary(req.file.buffer, "students");
+        updateData.profilePhoto = uploadRes.secure_url;
+      } else if (req.file.path) {
+        updateData.profilePhoto = req.file.path;
+      }
+    }
+
+    if (req.body.removePhoto === "true") {
+      updateData.profilePhoto = null;
     }
 
     const updated = await Student.findByIdAndUpdate(id, updateData, { new: true });

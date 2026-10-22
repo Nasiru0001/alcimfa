@@ -6,6 +6,7 @@ import Student from "../models/studentModel.js";
 import Result from "../models/resultModel.js";
 import Settings from "../models/settingsModel.js";
 import User from "../models/userModel.js";
+import { getSettings, updateSessionTerm } from "../controllers/settingsController.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
@@ -431,24 +432,7 @@ router.post("/add-user", requireAdminAuth, async (req, res) => {
 // SETTINGS
 // ==========================================
 
-router.get("/settings", requireAdminAuth, async (req, res) => {
-  try {
-    let settings = await Settings.findOne();
-    if (!settings) settings = await Settings.create({});
-
-    res.render("admin/settings", {
-      title: "Settings",
-      admin: req.admin,
-      adminToken: req.session.adminToken,
-      currentSession: settings.session,
-      currentTerm: settings.term,
-      success: req.query.success,
-      error: req.query.error
-    });
-  } catch (error) {
-    res.render("error", { message: error.message });
-  }
-});
+router.get("/settings", requireAdminAuth, getSettings);
 
 // Change password
 router.post("/settings/change-password", requireAdminAuth, async (req, res) => {
@@ -479,32 +463,8 @@ router.post("/settings/change-password", requireAdminAuth, async (req, res) => {
   }
 });
 
-// ✅ NEW: Update session and term
-router.post("/settings/session-term", requireAdminAuth, async (req, res) => {
-  try {
-    const { session, term } = req.body;
-
-    if (!session || !term) {
-      return res.status(400).json({ success: false, message: "Session and term are required" });
-    }
-
-    let settings = await Settings.findOne();
-    if (!settings) {
-      settings = await Settings.create({ session, term });
-    } else {
-      settings.session = session;
-      settings.term = term;
-      await settings.save();
-    }
-
-    console.log(`✅ Settings updated: ${term} - ${session}`);
-    res.json({ success: true, message: "Session/Term updated successfully" });
-
-  } catch (error) {
-    console.error("Settings update error:", error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+// ✅ Update session and term
+router.post("/settings/session-term", requireAdminAuth, updateSessionTerm);
 
 // ==========================================
 // PROFILE

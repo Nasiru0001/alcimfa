@@ -11,9 +11,83 @@ const router = express.Router();
 // Login page
 router.get("/login", redirectIfLoggedIn, (req, res) => {
   res.render("user/login", { 
-    error: null,
+    error: req.query.error || null,
+    success: req.query.success || null,
     title: "User Login"
   });
+});
+
+// Register page
+router.get("/register", redirectIfLoggedIn, (req, res) => {
+  res.render("user/register", {
+    error: req.query.error || null,
+    success: req.query.success || null,
+    title: "Student & Parent Registration"
+  });
+});
+
+// Process registration
+router.post("/register", async (req, res) => {
+  try {
+    const { name, email, password, confirmPassword, role, regNumber, phoneNumber } = req.body;
+
+    if (!name || !email || !password || !role || !regNumber) {
+      return res.render("user/register", {
+        error: "All required fields must be provided",
+        title: "Student & Parent Registration"
+      });
+    }
+
+    if (password !== confirmPassword) {
+      return res.render("user/register", {
+        error: "Passwords do not match",
+        title: "Student & Parent Registration"
+      });
+    }
+
+    if (password.length < 6) {
+      return res.render("user/register", {
+        error: "Password must be at least 6 characters long",
+        title: "Student & Parent Registration"
+      });
+    }
+
+    // Check if email already registered
+    const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
+    if (existingUser) {
+      return res.render("user/register", {
+        error: "An account with this email already exists",
+        title: "Student & Parent Registration"
+      });
+    }
+
+    // Validate student registration number exists
+    const student = await Student.findOne({ regNumber: regNumber.trim() });
+    if (!student) {
+      return res.render("user/register", {
+        error: `No student record found with Registration Number "${regNumber}". Please verify with school administration.`,
+        title: "Student & Parent Registration"
+      });
+    }
+
+    // Create user
+    await User.create({
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      password,
+      role: role === "parent" ? "parent" : "student",
+      student: student._id,
+      phoneNumber: phoneNumber ? phoneNumber.trim() : undefined,
+    });
+
+    res.redirect("/user/login?success=" + encodeURIComponent("Account created successfully! Please login."));
+  } catch (error) {
+    console.error("User registration error:", error);
+    res.render("user/register", {
+      error: error.message || "Registration failed",
+      title: "Student & Parent Registration"
+    });
+  }
 });
 
 // Process login

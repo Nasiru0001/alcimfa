@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %> - School Management</title>
+    <link rel="stylesheet" href="/css/style2.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    <div class="admin-layout">
+      <!-- Sidebar -->
+      <%- include('../partials/sidebar') %>
+
+      <!-- Main Content -->
+      <div class="main-content">
+        <header>
+          <button class="menu-btn" id="menuBtn">
+            <i class="fa fa-bars"></i>
+          </button>
+          <h1>Admin Profile</h1>
+        </header>
+
+        <!-- Content -->
+        <main class="admin-content">
+
+          <!-- Success / Error messages from query params -->
+          <% if (typeof success !== 'undefined' && success) { %>
+            <div style="background:#d4edda; color:#155724; padding:10px 15px; border-radius:6px; margin-bottom:15px;">
+              ✅ <%= success %>
+            </div>
+          <% } %>
+          <% if (typeof error !== 'undefined' && error) { %>
+            <div style="background:#f8d7da; color:#721c24; padding:10px 15px; border-radius:6px; margin-bottom:15px;">
+              ❌ <%= error %>
+            </div>
+          <% } %>
+
+          <section class="settings-container">
+
+            <!-- Profile Info Card -->
+            <div class="settings-box">
+              <h2><i class="fa-solid fa-user-shield"></i> Administrator Account</h2>
+              <div style="margin-bottom: 20px;">
+                <p><strong>Name:</strong> <%= admin ? admin.name : 'Administrator' %></p>
+                <p><strong>Email:</strong> <%= admin ? admin.email : 'N/A' %></p>
+                <p><strong>Role:</strong> Super Admin</p>
+                <% if (admin && admin.createdAt) { %>
+                  <p><strong>Member Since:</strong> <%= new Date(admin.createdAt).toLocaleDateString() %></p>
+                <% } %>
+              </div>
+              <a href="/admin/settings" class="btn btn-primary" style="display:inline-block; text-decoration:none; color:white;">
+                <i class="fa-solid fa-gear"></i> Manage System & Password
+              </a>
+            </div>
+
+            <!-- Update Profile Form -->
+            <div class="settings-box">
+              <h2><i class="fa-solid fa-pen-to-square"></i> Update Profile Details</h2>
+              <form action="/admin/profile" method="POST">
+                <div class="form-group">
+                  <label for="name">Full Name</label>
+                  <input type="text" id="name" name="name" value="<%= admin ? admin.name : '' %>" required>
+                </div>
+
+                <div class="form-group">
+                  <label for="email">Email Address</label>
+                  <input type="email" id="email" name="email" value="<%= admin ? admin.email : '' %>" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                  <i class="fa fa-save"></i> Save Profile
+                </button>
+              </form>
+            </div>
+
+          </section>
+        </main>
+      </div>
+    </div>
+
+  <script>
+    // Sidebar toggle for mobile
+    const menuBtn = document.getElementById('menuBtn');
+    const sidebar = document.getElementById('sidebar');
+    if (menuBtn && sidebar) {
+      menuBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('active');
+      });
+    }
+  </script>
+</body>
+</html>

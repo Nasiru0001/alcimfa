@@ -9,6 +9,7 @@ import MongoStore from "connect-mongo";
 
 // Import API routes
 import authRoutes from "./routes/authRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 import studentRoutes from "./routes/studentRoutes.js";
 import resultRoutes from "./routes/resultRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
@@ -31,7 +32,7 @@ app.use(cors());
 app.use(morgan("dev"));
 
 // MongoDB URI
-const uri = process.env.MONGO_URI || 'mongodb://localhost:27017/myDatabase';
+const uri = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/myDatabase';
 
 // Session middleware with MongoDB store
 app.use(session({
@@ -58,6 +59,7 @@ app.use(express.static(path.join(__dirname, "public")));
 
 // API Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/results", resultRoutes);
