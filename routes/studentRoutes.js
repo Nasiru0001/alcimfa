@@ -11,11 +11,28 @@ import { upload } from "../config/cloudinary.js";
 
 const router = express.Router();
 
+// Middleware wrapper to handle Multer upload errors gracefully in JSON API format
+const uploadStudentPhoto = (req, res, next) => {
+  upload.single("photo")(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({
+        success: false,
+        message: err.message || "File upload failed"
+      });
+    }
+    // Defensive check: ensure req.body is defined even if empty
+    if (!req.body) {
+      req.body = {};
+    }
+    next();
+  });
+};
+
 // ⭐ Add Student (with profile photo)
 router.post(
   "/",
   protect,
-  upload.single("photo"),
+  uploadStudentPhoto,
   addStudent
 );
 
@@ -26,7 +43,7 @@ router.get("/", protect, getStudents);
 router.put(
   "/:id",
   protect,
-  upload.single("photo"),
+  uploadStudentPhoto,
   updateStudent
 );
 

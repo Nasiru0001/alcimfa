@@ -91,6 +91,9 @@ await connectDB();
 
 // 404 handler
 app.use((req, res) => {
+  if (req.originalUrl && req.originalUrl.startsWith("/api")) {
+    return res.status(404).json({ success: false, message: "API endpoint not found" });
+  }
   res.status(404).render('error', { 
     message: "Page not found",
     error: { status: 404 }
@@ -99,7 +102,15 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error("Server Error:", err.stack || err.message);
+  if (req.originalUrl && req.originalUrl.startsWith("/api")) {
+    const status = err.status || err.statusCode || 500;
+    return res.status(status).json({ 
+      success: false, 
+      message: err.message || "Internal server error",
+      error: process.env.NODE_ENV === 'development' ? err : {}
+    });
+  }
   res.status(500).render('error', { 
     message: "Something went wrong!",
     error: process.env.NODE_ENV === 'development' ? err : {}
