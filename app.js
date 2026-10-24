@@ -63,6 +63,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/results", resultRoutes);
+app.use("/api/scores", resultRoutes);
 
 // VIEW Routes
 app.use("/admin", adminViewRoutes);

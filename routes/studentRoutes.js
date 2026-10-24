@@ -6,7 +6,7 @@ import {
   deleteStudent,
 } from "../controllers/studentController.js";
 
-import { protect } from "../middleware/authMiddleware.js";
+import { protect, protectAdminOrTeacher } from "../middleware/authMiddleware.js";
 import { upload } from "../config/cloudinary.js";
 
 const router = express.Router();
@@ -28,26 +28,26 @@ const uploadStudentPhoto = (req, res, next) => {
   });
 };
 
-// ⭐ Add Student (with profile photo)
+// ⭐ Add Student (with profile photo) - Decentralized to Admins & Teachers
 router.post(
   "/",
-  protect,
+  protectAdminOrTeacher,
   uploadStudentPhoto,
   addStudent
 );
 
-// ⭐ Get all students
-router.get("/", protect, getStudents);
+// ⭐ Get all students - Admins & Teachers (scoped to assigned classes)
+router.get("/", protectAdminOrTeacher, getStudents);
 
-// ⭐ Update student (with profile photo replacement)
+// ⭐ Update student (with profile photo replacement) - Admins & Teachers
 router.put(
   "/:id",
-  protect,
+  protectAdminOrTeacher,
   uploadStudentPhoto,
   updateStudent
 );
 
-// ⭐ Delete student
+// ⭐ Delete student - Admin only
 router.delete("/:id", protect, deleteStudent);
 
 export default router;

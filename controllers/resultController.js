@@ -1,108 +1,394 @@
+import mongoose from "mongoose";
 import Result from "../models/resultModel.js";
 import Student from "../models/studentModel.js";
 
+// Helper: Safely resolve Student document by either ObjectId or regNumber
+export const findStudentByIdOrReg = async (identifier) => {
+  if (!identifier || typeof identifier !== "string") return null;
+  const trimmed = identifier.trim();
+
+  // If valid 24-character hexadecimal ObjectId, query by _id first
+  if (mongoose.Types.ObjectId.isValid(trimmed)) {
+    // Mongoose query: Find student by MongoDB ObjectId
+    const studentById = await Student.findById(trimmed);
+    if (studentById) return studentById;
+  }
+
+  // Otherwise (or if not found by ObjectId), search by unique registration number
+  // Mongoose query: Find student by registration number
+  return await Student.findOne({ regNumber: trimmed });
+};
+
+// Helper to calculate grade and remark based on total score (out of 100)
+const computeGradeAndRemark = (total) => {
+  if (total >= 70) return { grade: "A", remark: "Excellent" };
+  if (total >= 60) return { grade: "B", remark: "Very Good" };
+  if (total >= 50) return { grade: "C", remark: "Good" };
+  if (total >= 40) return { grade: "D", remark: "Fair" };
+  return { grade: "F", remark: "Poor" };
+};
+
+// Helper to calculate GPA based on average score
+const computeGPA = (average) => {
+  if (average >= 70) return "4.00";
+  if (average >= 60) return "3.00";
+  if (average >= 50) return "2.00";
+  if (average >= 40) return "1.00";
+  return "0.00";
+};
+
+// @desc Upload student result / CA and Exam scores
+// @route POST /api/results or POST /api/scores
 export const uploadResult = async (req, res) => {
   try {
-    const { studentId, term, session, subjects, headRemark, teacherRemark } = req.body;
-
-    if (!studentId || !term || !session) {
-      return res.status(400).json({ message: "Student ID, term, and session are required" });
+    // 1. Defensive check for missing body
+    if (!req.body || typeof req.body !== "object") {
+      return res.status(400).json({ success: false, message: "Request body is missing" });
     }
 
-    if (!subjects || !Array.isArray(subjects) || subjects.length === 0) {
-      return res.status(400).json({ message: "At least one subject is required" });
-    }
+    const { studentId, regNumber, term, session, subjects, headRemark, teacherRemark } = req.body;
+    const identifier = studentId || regNumber;
 
-    const student = await Student.findById(studentId);
-    if (!student) return res.status(404).json({ message: "Student not found" });
-
-    // ✅ BLOCK duplicate result for same student + term + session
-    const existingResult = await Result.findOne({ student: studentId, term, session });
-    if (existingResult) {
-      return res.status(400).json({
-        message: `Result for ${term} (${session}) already exists for this student. Use the update endpoint instead.`,
+    if (!identifier || !term || !session) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Student identifier (studentId or regNumber), term, and session are required" 
       });
     }
 
-    for (const s of subjects) {
-      if (!s.name || s.ca1 === undefined || s.ca2 === undefined || s.exam === undefined) {
-        return res.status(400).json({ message: `Missing score fields for ${s.name}` });
+    if (!subjects || !Array.isArray(subjects) || subjects.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "At least one subject score object is required in the 'subjects' array" 
+      });
+    }
+
+    // 2. Mongoose query: Verify that the student exists in MongoDB (by ObjectId or regNumber)
+    const student = await findStudentByIdOrReg(identifier);
+    if (!student) {
+      return res.status(404).json({ success: false, message: "Student not found" });
+    }
+
+    // 3. Teacher Scope Authorization: Enforce assigned classes and subjects
+    if (req.user && req.user.role === "teacher") {
+      if (req.user.assignedClasses && req.user.assignedClasses.length > 0) {
+        if (!req.user.assignedClasses.includes(student.classLevel)) {
+          return res.status(403).json({
+            success: false,
+            message: `Access denied. You are only authorized to upload scores for your assigned classes: [${req.user.assignedClasses.join(", ")}]. Student is in ${student.classLevel}.`
+          });
+        }
+      }
+      if (req.user.assignedSubjects && req.user.assignedSubjects.length > 0) {
+        for (const s of subjects) {
+          if (!req.user.assignedSubjects.includes(s.name)) {
+            return res.status(403).json({
+              success: false,
+              message: `Access denied. You are not authorized to grade subject '${s.name}'. Your assigned subjects: [${req.user.assignedSubjects.join(", ")}].`
+            });
+          }
+        }
       }
     }
 
-    let totalScore = 0;
-    let gradedSubjects = [];
-
-    for (const s of subjects) {
-      if (s.ca1 < 0 || s.ca1 > 15) return res.status(400).json({ message: `CA1 invalid for ${s.name}` });
-      if (s.ca2 < 0 || s.ca2 > 15) return res.status(400).json({ message: `CA2 invalid for ${s.name}` });
-      if (s.exam < 0 || s.exam > 70) return res.status(400).json({ message: `Exam invalid for ${s.name}` });
-
-      const total = s.ca1 + s.ca2 + s.exam;
-      let grade, remark;
-
-      if (total >= 70) { grade = "A"; remark = "Excellent"; }
-      else if (total >= 60) { grade = "B"; remark = "Very Good"; }
-      else if (total >= 50) { grade = "C"; remark = "Good"; }
-      else if (total >= 40) { grade = "D"; remark = "Fair"; }
-      else { grade = "F"; remark = "Poor"; }
-
-      totalScore += total;
-      gradedSubjects.push({ ...s, total, grade, remark });
+    // 4. Mongoose query: Check for existing result to prevent duplicate term/session entries
+    const existingResult = await Result.findOne({ student: student._id, term: term.trim(), session: session.trim() });
+    if (existingResult) {
+      return res.status(400).json({
+        success: false,
+        message: `Result for ${term} (${session}) already exists for this student. Use PUT /api/scores/${existingResult._id} to update existing scores.`,
+        existingResultId: existingResult._id
+      });
     }
 
-    const average = totalScore / subjects.length;
+    // 5. CA and Exam Score Validation & Subject Grading
+    let totalScore = 0;
+    const gradedSubjects = [];
 
-    const gpa = (avg => {
-      if (avg >= 70) return 4.0;
-      if (avg >= 60) return 3.0;
-      if (avg >= 50) return 2.0;
-      if (avg >= 40) return 1.0;
-      return 0.0;
-    })(average);
+    for (const s of subjects) {
+      if (!s.name) {
+        return res.status(400).json({ success: false, message: "Each subject must have a 'name' field" });
+      }
 
+      let ca1Score = 0;
+      let ca2Score = 0;
+
+      // Handle single 'ca' field (0 to 40 max) or discrete 'ca1' & 'ca2' (each 0 to 20, sum <= 40)
+      if (s.ca !== undefined) {
+        const caVal = Number(s.ca);
+        if (isNaN(caVal) || caVal < 0 || caVal > 40) {
+          return res.status(400).json({ 
+            success: false, 
+            message: `Continuous Assessment (CA) score for ${s.name} must be between 0 and 40. Received: ${s.ca}` 
+          });
+        }
+        ca1Score = caVal;
+        ca2Score = 0;
+      } else {
+        const ca1Val = Number(s.ca1 ?? 0);
+        const ca2Val = Number(s.ca2 ?? 0);
+        if (isNaN(ca1Val) || ca1Val < 0 || ca1Val > 20) {
+          return res.status(400).json({ 
+            success: false, 
+            message: `CA1 score for ${s.name} must be between 0 and 20. Received: ${s.ca1}` 
+          });
+        }
+        if (isNaN(ca2Val) || ca2Val < 0 || ca2Val > 20) {
+          return res.status(400).json({ 
+            success: false, 
+            message: `CA2 score for ${s.name} must be between 0 and 20. Received: ${s.ca2}` 
+          });
+        }
+        if (ca1Val + ca2Val > 40) {
+          return res.status(400).json({
+            success: false,
+            message: `Total CA score (CA1 + CA2) for ${s.name} cannot exceed 40. Received: ${ca1Val + ca2Val}`
+          });
+        }
+        ca1Score = ca1Val;
+        ca2Score = ca2Val;
+      }
+
+      // Exam score validation (0 to 70 max)
+      const examVal = Number(s.exam ?? 0);
+      if (isNaN(examVal) || examVal < 0 || examVal > 70) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Exam score for ${s.name} must be between 0 and 70. Received: ${s.exam}` 
+        });
+      }
+
+      const subjectTotal = ca1Score + ca2Score + examVal;
+      if (subjectTotal > 100) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Total score for ${s.name} cannot exceed 100. Received: ${subjectTotal}` 
+        });
+      }
+
+      const { grade, remark } = computeGradeAndRemark(subjectTotal);
+      totalScore += subjectTotal;
+
+      gradedSubjects.push({
+        name: s.name.trim(),
+        ca1: ca1Score,
+        ca2: ca2Score,
+        exam: examVal,
+        total: subjectTotal,
+        grade,
+        remark
+      });
+    }
+
+    const average = totalScore / gradedSubjects.length;
+    const gpa = computeGPA(average);
     const resultStatus = average >= 40 ? "Pass" : "Fail";
 
+    // 6. Mongoose query: Persist new Result document to MongoDB linking student._id
     const result = await Result.create({
-      student: studentId,
-      term,
-      session,
+      student: student._id,
+      term: term.trim(),
+      session: session.trim(),
       subjects: gradedSubjects,
       totalScore,
-      average: average.toFixed(2),
-      gpa: gpa.toFixed(2),
+      average: Number(average.toFixed(2)),
+      gpa: Number(gpa),
       resultStatus,
-      headRemark,
-      teacherRemark,
+      headRemark: headRemark ? headRemark.trim() : "",
+      teacherRemark: teacherRemark ? teacherRemark.trim() : "",
     });
 
-    res.status(201).json({ message: "Result uploaded successfully", result });
+    return res.status(201).json({
+      success: true,
+      message: "Result uploaded successfully",
+      result
+    });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error in uploadResult:", error);
+    return res.status(500).json({ 
+      success: false, 
+      message: error.message || "Failed to upload result" 
+    });
   }
 };
 
-// Get student result JSON
+
+// @desc Update student result / scores
+// @route PUT /api/results/:id or PUT /api/scores/:id
+export const updateResult = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { subjects, headRemark, teacherRemark, term, session } = req.body;
+
+    // 1. Mongoose query: Find result by ID and populate associated student
+    const result = await Result.findById(id).populate("student");
+    if (!result) {
+      return res.status(404).json({ success: false, message: "Result record not found" });
+    }
+
+    const student = result.student;
+
+    // 2. Teacher Scope Authorization: Enforce assigned classes and subjects
+    if (req.user && req.user.role === "teacher") {
+      if (req.user.assignedClasses && req.user.assignedClasses.length > 0 && student) {
+        if (!req.user.assignedClasses.includes(student.classLevel)) {
+          return res.status(403).json({
+            success: false,
+            message: `Access denied. You are only authorized to modify scores for: [${req.user.assignedClasses.join(", ")}]. Student is in ${student.classLevel}.`
+          });
+        }
+      }
+      if (req.user.assignedSubjects && req.user.assignedSubjects.length > 0 && Array.isArray(subjects)) {
+        for (const s of subjects) {
+          if (!req.user.assignedSubjects.includes(s.name)) {
+            return res.status(403).json({
+              success: false,
+              message: `Access denied. You are not authorized to grade subject '${s.name}'. Your assigned subjects: [${req.user.assignedSubjects.join(", ")}].`
+            });
+          }
+        }
+      }
+    }
+
+    // 3. Process and validate updated subjects if provided
+    if (subjects && Array.isArray(subjects) && subjects.length > 0) {
+      let totalScore = 0;
+      const gradedSubjects = [];
+
+      for (const s of subjects) {
+        if (!s.name) {
+          return res.status(400).json({ success: false, message: "Each subject must have a 'name' field" });
+        }
+
+        let ca1Score = 0;
+        let ca2Score = 0;
+
+        if (s.ca !== undefined) {
+          const caVal = Number(s.ca);
+          if (isNaN(caVal) || caVal < 0 || caVal > 40) {
+            return res.status(400).json({ 
+              success: false, 
+              message: `Continuous Assessment (CA) score for ${s.name} must be between 0 and 40. Received: ${s.ca}` 
+            });
+          }
+          ca1Score = caVal;
+          ca2Score = 0;
+        } else {
+          const ca1Val = Number(s.ca1 ?? 0);
+          const ca2Val = Number(s.ca2 ?? 0);
+          if (isNaN(ca1Val) || ca1Val < 0 || ca1Val > 20) {
+            return res.status(400).json({ 
+              success: false, 
+              message: `CA1 score for ${s.name} must be between 0 and 20. Received: ${s.ca1}` 
+            });
+          }
+          if (isNaN(ca2Val) || ca2Val < 0 || ca2Val > 20) {
+            return res.status(400).json({ 
+              success: false, 
+              message: `CA2 score for ${s.name} must be between 0 and 20. Received: ${s.ca2}` 
+            });
+          }
+          if (ca1Val + ca2Val > 40) {
+            return res.status(400).json({
+              success: false,
+              message: `Total CA score (CA1 + CA2) for ${s.name} cannot exceed 40. Received: ${ca1Val + ca2Val}`
+            });
+          }
+          ca1Score = ca1Val;
+          ca2Score = ca2Val;
+        }
+
+        const examVal = Number(s.exam ?? 0);
+        if (isNaN(examVal) || examVal < 0 || examVal > 70) {
+          return res.status(400).json({ 
+            success: false, 
+            message: `Exam score for ${s.name} must be between 0 and 70. Received: ${s.exam}` 
+          });
+        }
+
+        const subjectTotal = ca1Score + ca2Score + examVal;
+        if (subjectTotal > 100) {
+          return res.status(400).json({ 
+            success: false, 
+            message: `Total score for ${s.name} cannot exceed 100. Received: ${subjectTotal}` 
+          });
+        }
+
+        const { grade, remark } = computeGradeAndRemark(subjectTotal);
+        totalScore += subjectTotal;
+
+        gradedSubjects.push({
+          name: s.name.trim(),
+          ca1: ca1Score,
+          ca2: ca2Score,
+          exam: examVal,
+          total: subjectTotal,
+          grade,
+          remark
+        });
+      }
+
+      const average = totalScore / gradedSubjects.length;
+      const gpa = computeGPA(average);
+
+      result.subjects = gradedSubjects;
+      result.totalScore = totalScore;
+      result.average = Number(average.toFixed(2));
+      result.gpa = Number(gpa);
+      result.resultStatus = average >= 40 ? "Pass" : "Fail";
+    }
+
+    if (headRemark !== undefined) result.headRemark = headRemark.trim();
+    if (teacherRemark !== undefined) result.teacherRemark = teacherRemark.trim();
+    if (term) result.term = term.trim();
+    if (session) result.session = session.trim();
+
+    // 4. Mongoose query: Save updated Result document to MongoDB
+    await result.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Scores updated successfully",
+      result
+    });
+
+  } catch (error) {
+    console.error("Error in updateResult:", error);
+    return res.status(500).json({ 
+      success: false, 
+      message: error.message || "Failed to update scores" 
+    });
+  }
+};
+
 // Get student result JSON
 export const getStudentResult = async (req, res) => {
   try {
     const { studentId } = req.params;
     const { term, session } = req.query; // e.g. ?term=First Term&session=2024/2025
 
-    const query = { student: studentId };
+    // Mongoose query: Resolve student document by ObjectId or regNumber
+    const student = await findStudentByIdOrReg(studentId);
+    if (!student) {
+      return res.status(404).json({ success: false, message: "Student not found" });
+    }
+
+    const query = { student: student._id };
     if (term) query.term = term;
     if (session) query.session = session;
 
+    // Mongoose query: Find result matching student._id, term, and session
     const result = await Result.findOne(query).populate("student");
 
     if (!result) {
-      return res.status(404).json({ message: "No result found" });
+      return res.status(404).json({ success: false, message: "No result found" });
     }
 
-    res.json(result);
+    return res.json({ success: true, result });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("Error in getStudentResult:", err);
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -112,10 +398,17 @@ export const renderResultCard = async (req, res) => {
     const { studentId } = req.params;
     const { term, session } = req.query; // ✅ get from query string
 
-    const query = { student: studentId };
+    // Mongoose query: Resolve student document by ObjectId or regNumber
+    const student = await findStudentByIdOrReg(studentId);
+    if (!student) {
+      return res.status(404).render("error", { message: "Student not found" });
+    }
+
+    const query = { student: student._id };
     if (term) query.term = term;
     if (session) query.session = session;
 
+    // Mongoose query: Find result matching student._id, term, and session
     const result = await Result.findOne(query).populate("student");
 
     if (!result) {

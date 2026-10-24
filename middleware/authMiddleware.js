@@ -174,6 +174,95 @@ export const protectAdminOrUser = async (req, res, next) => {
   return res.status(401).json({ message: "Not authorized, no token provided" });
 };
 
+// ==========================================
+// ADMIN OR TEACHER AUTHENTICATION
+// Allows both Admins and Teachers (blocks Students & Parents)
+// ==========================================
+export const protectAdminOrTeacher = async (req, res, next) => {
+  // Check session first (for view/panel routes)
+  if (req.session) {
+    if (req.session.admin) {
+      req.admin = await Admin.findById(req.session.admin._id).select("-password");
+      if (req.admin) {
+        req.userType = "admin";
+        return next();
+      }
+    }
+    if (req.session.user) {
+      req.user = await User.findById(req.session.user._id).select("-password");
+      if (req.user && req.user.isActive) {
+        if (req.user.role === "teacher") {
+          req.userType = "teacher";
+          return next();
+        }
+        return res.status(403).json({
+          success: false,
+          message: "Access denied. Only teachers and admins are authorized."
+        });
+      }
+    }
+  }
+
+  // Check Bearer token (for API routes)
+  let token;
+  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+    try {
+      token = req.headers.authorization.split(" ")[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      // Check if Admin
+      const admin = await Admin.findById(decoded.id).select("-password");
+      if (admin) {
+        req.admin = admin;
+        req.userType = "admin";
+        return next();
+      }
+
+      // Check if User (must have role === "teacher")
+      const user = await User.findById(decoded.id).select("-password");
+      if (user) {
+        if (!user.isActive) {
+          return res.status(403).json({
+            success: false,
+            message: "Account is deactivated. Please contact admin."
+          });
+        }
+        if (user.role === "teacher") {
+          req.user = user;
+          req.userType = "teacher";
+          return next();
+        }
+        return res.status(403).json({
+          success: false,
+          message: "Access denied. Only teachers and admins are authorized."
+        });
+      }
+
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized, account not found"
+      });
+    } catch (error) {
+      console.error("Token verification failed:", error);
+      if (error.name === "TokenExpiredError") {
+        return res.status(401).json({
+          success: false,
+          message: "Token expired, please login again"
+        });
+      }
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized, token failed"
+      });
+    }
+  }
+
+  return res.status(401).json({
+    success: false,
+    message: "Not authorized, no token provided"
+  });
+};
+
 // Admin authentication for user routes (supports both session and token)
 export const protectAdmin = async (req, res, next) => {
   // Check session first (THIS IS THE KEY FIX!)

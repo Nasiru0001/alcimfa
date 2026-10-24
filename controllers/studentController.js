@@ -34,7 +34,17 @@ export const addStudent = async (req, res) => {
       });
     }
 
-    // 3. Mongoose query: Check if student with this regNumber already exists to prevent duplicate key errors
+    // 3. Teacher Scope Validation: If authenticated as a teacher with assigned classes, enforce class boundaries
+    if (req.user && req.user.role === "teacher" && req.user.assignedClasses && req.user.assignedClasses.length > 0) {
+      if (!req.user.assignedClasses.includes(classLevel.trim())) {
+        return res.status(403).json({
+          success: false,
+          message: `Access denied. You are only authorized to register students for classes: ${req.user.assignedClasses.join(", ")}. Received: ${classLevel.trim()}`
+        });
+      }
+    }
+
+    // 4. Mongoose query: Check if student with this regNumber already exists to prevent duplicate key errors
     const existing = await Student.findOne({ regNumber: regNumber.trim() });
     if (existing) {
       return res.status(400).json({ 
@@ -43,7 +53,7 @@ export const addStudent = async (req, res) => {
       });
     }
 
-    // 4. Resolve profile picture URL:
+    // 5. Resolve profile picture URL:
     //    - Check req.file.secure_url (direct Cloudinary storage)
     //    - Check req.file.path (multer-storage-cloudinary or pre-uploaded URL)
     //    - Check req.file.url
@@ -71,7 +81,7 @@ export const addStudent = async (req, res) => {
       }
     }
 
-    // 5. Mongoose query: Create and persist new student record in MongoDB
+    // 6. Mongoose query: Create and persist new student record in MongoDB
     const student = await Student.create({
       name: name.trim(),
       classLevel: classLevel.trim(),
@@ -106,8 +116,13 @@ export const addStudent = async (req, res) => {
 // @route GET /api/students
 export const getStudents = async (req, res) => {
   try {
-    // Mongoose query: Find all students sorted by createdAt in descending order (latest first)
-    const students = await Student.find().sort({ createdAt: -1 });
+    // Mongoose query: Find all students (scoped to teacher's assigned classes if teacher has class restrictions)
+    let query = {};
+    if (req.user && req.user.role === "teacher" && req.user.assignedClasses && req.user.assignedClasses.length > 0) {
+      query.classLevel = { $in: req.user.assignedClasses };
+    }
+
+    const students = await Student.find(query).sort({ createdAt: -1 });
     return res.status(200).json({
       success: true,
       count: students.length,
@@ -135,6 +150,27 @@ export const updateStudent = async (req, res) => {
         success: false,
         message: "Request body is missing or invalid" 
       });
+    }
+
+    // 2. Teacher Scope Validation: If authenticated as a teacher with assigned classes, verify authority over target student
+    if (req.user && req.user.role === "teacher" && req.user.assignedClasses && req.user.assignedClasses.length > 0) {
+      // Mongoose query: Check existing student's classLevel
+      const studentToUpdate = await Student.findById(id);
+      if (!studentToUpdate) {
+        return res.status(404).json({ success: false, message: "Student not found" });
+      }
+      if (!req.user.assignedClasses.includes(studentToUpdate.classLevel)) {
+        return res.status(403).json({
+          success: false,
+          message: `Access denied. You are only authorized to update students in classes: ${req.user.assignedClasses.join(", ")}. Student is in ${studentToUpdate.classLevel}.`
+        });
+      }
+      if (req.body.classLevel && !req.user.assignedClasses.includes(req.body.classLevel.trim())) {
+        return res.status(403).json({
+          success: false,
+          message: `Access denied. Cannot reassign student to class ${req.body.classLevel.trim()} outside your assigned classes: ${req.user.assignedClasses.join(", ")}.`
+        });
+      }
     }
 
     let updateData = { ...req.body };

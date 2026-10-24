@@ -1,23 +1,21 @@
 import express from "express";
-import { uploadResult, getStudentResult, renderResultCard } from "../controllers/resultController.js";
-import { protect, publicOrProtect } from "../middleware/authMiddleware.js";
+import { 
+  uploadResult, 
+  updateResult, 
+  getStudentResult, 
+  renderResultCard 
+} from "../controllers/resultController.js";
+import { protect, protectAdminOrTeacher } from "../middleware/authMiddleware.js";
 import Result from "../models/resultModel.js";
 
 const router = express.Router();
 
 // ==========================================
-// OPTION 1: FULLY PROTECTED (Recommended)
-// Only logged-in admins can access
+// RESULT & SCORE ROUTES
+// Teachers & Admins can upload and update scores
 // ==========================================
-// router.post("/", protect, uploadResult);              // ✅ Admin only
-// router.get("/:studentId", protect, getStudentResult); // ✅ Admin only
-// router.get("/card/:studentId", protect, renderResultCard); // ✅ Admin only
-
-// ==========================================
-// OPTION 2: MIXED ACCESS
-// Upload protected, viewing public
-// ==========================================
-router.post("/", protect, uploadResult);
+router.post("/", protectAdminOrTeacher, uploadResult);
+router.put("/:id", protectAdminOrTeacher, updateResult);
 router.get("/card/:studentId", renderResultCard);  // Specific route FIRST
 router.get("/:studentId", getStudentResult);       // Dynamic route LAST
 

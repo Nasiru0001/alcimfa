@@ -38,6 +38,14 @@ const userSchema = new mongoose.Schema(
         return this.role === "student" || this.role === "parent";
       },
     },
+    assignedClasses: {
+      type: [String],
+      default: [],
+    },
+    assignedSubjects: {
+      type: [String],
+      default: [],
+    },
     phoneNumber: {
       type: String,
       trim: true,
@@ -84,6 +92,8 @@ userSchema.virtual("profile").get(function () {
     name: this.name,
     email: this.email,
     role: this.role,
+    assignedClasses: this.assignedClasses,
+    assignedSubjects: this.assignedSubjects,
     phoneNumber: this.phoneNumber,
     isActive: this.isActive,
     lastLogin: this.lastLogin,
