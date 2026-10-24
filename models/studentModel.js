@@ -60,9 +60,28 @@ const studentSchema = new mongoose.Schema(
       type: String,
       default: null, // Will store Cloudinary URL
     },
+
+    // ⭐ ARCHIVE / SOFT DELETE FIELDS
+    isArchived: {
+      type: Boolean,
+      default: false,
+    },
+
+    archivedAt: {
+      type: Date,
+      default: null,
+    },
+
+    archiveReason: {
+      type: String,
+      default: null,
+      trim: true,
+    },
   },
   { timestamps: true }
 );
+
+studentSchema.index({ isArchived: 1 });
 
 const Student = mongoose.model("Student", studentSchema);
 export default Student;

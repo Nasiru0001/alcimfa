@@ -2,6 +2,9 @@ import express from "express";
 import {
   addStudent,
   getStudents,
+  getArchivedStudents,
+  archiveStudent,
+  unarchiveStudent,
   updateStudent,
   deleteStudent,
 } from "../controllers/studentController.js";
@@ -36,8 +39,17 @@ router.post(
   addStudent
 );
 
-// ⭐ Get all students - Admins & Teachers (scoped to assigned classes)
+// ⭐ Get all active students (excludes archived by default) - Admins & Teachers
 router.get("/", protectAdminOrTeacher, getStudents);
+
+// ⭐ Get all archived students - Admins & Teachers (Must be defined before parameterized /:id routes)
+router.get("/archived", protectAdminOrTeacher, getArchivedStudents);
+
+// ⭐ Archive student (soft delete) - Admins & Teachers
+router.patch("/:id/archive", protectAdminOrTeacher, archiveStudent);
+
+// ⭐ Restore / Unarchive student - Admins & Teachers
+router.patch("/:id/unarchive", protectAdminOrTeacher, unarchiveStudent);
 
 // ⭐ Update student (with profile photo replacement) - Admins & Teachers
 router.put(
@@ -47,7 +59,7 @@ router.put(
   updateStudent
 );
 
-// ⭐ Delete student - Admin only
+// ⭐ Delete student permanently - Admin only
 router.delete("/:id", protect, deleteStudent);
 
 export default router;
