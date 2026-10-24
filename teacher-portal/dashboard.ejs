@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title || 'Dashboard' %></title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="/style.css">
+  <link href="https://fonts.cdnfonts.com/css/manrope" rel="stylesheet">
+</head>
+<body>
+
+  <div class="dashboard">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <img src="/img/logo.png" width="150px" class="logo" alt="logo">
+
+      <nav>
+        <ul>
+          <a href="/dashboard"><li class="<%= path === '/dashboard' ? 'active' : '' %>"><i class="fa fa-home"></i> Home</li></a>
+          <a href="/students"><li class="<%= path === '/students' ? 'active' : '' %>"><i class="fa fa-users"></i> Students</li></a>
+          <a href="/upload"><li class="<%= path === '/upload' ? 'active' : '' %>"><i class="fa-solid fa-upload"></i> Upload Result</li></a>
+          <a href="/review"><li class="<%= path === '/review' ? 'active' : '' %>"><i class="fa-solid fa-eye"></i> View Result</li></a>
+          <a href="/settings"><li class="<%= path === '/settings' ? 'active' : '' %>"><i class="fa fa-cog"></i> Settings</li></a>
+          <a href="/logout"><li><i class="fa-solid fa-right-from-bracket"></i> Logout</li></a>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <header>
+        <h1>Teacher Dashboard</h1><i class="fa fa-dashboard"></i>
+        <button id="menu-btn" class="menu-btn">
+          <i class="fa fa-bars"></i>
+        </button>
+      </header>
+
+      <div class="cards">
+        <div class="card">
+          <h1>Hello, <%= teacherName || 'Mr ......' %></h1>
+        </div>
+      </div>
+
+      <section class="cards">
+        <div class="card"><i class="fa fa-users"></i> Assigned Classes: <%= assignedClasses || 'N/A' %></div>
+        <div class="card"><i class="fa fa-users"></i> Subject: <%= subject || 'N/A' %></div>
+        <div class="card"><i class="fa fa-book"></i> No. of Students: <%= studentCount || 0 %></div>
+        <div class="card"><i class="fa fa-plus"></i> Pending Results: <%= pendingResults || 0 %></div>
+        <div class="card"><a href="/upload" class="none"><i class="fa-solid fa-upload"></i> Submitted Results.</a></div>
+      </section>
+
+      <div class="cards">
+        <h2>My Classes</h2>
+        <div class="card"><%= myClasses || 'e.g JSS1' %></div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Toggle sidebar open/close
+    const menuBtn = document.getElementById('menu-btn');
+    const sidebar = document.getElementById('sidebar');
+
+    menuBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('active');
+    });
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title || 'Settings' %></title>
+  <link href="https://fonts.cdnfonts.com/css/manrope" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+
+   <div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+        <img src="/img/logo.png" width="150px" class="logo" alt="students">
+        
+        <nav>
+          <ul>
+            <a href="/dashboard"><li class="<%= path === '/dashboard' ? 'active' : '' %>"><i class="fa fa-home"></i> Home</li></a>
+            <a href="/students"><li class="<%= path === '/students' ? 'active' : '' %>"><i class="fa fa-users"></i> Students</li></a>
+            <a href="/upload"><li class="<%= path === '/upload' ? 'active' : '' %>"><i class="fa-solid fa-upload"></i> Upload Result</li></a>
+            <a href="/review"><li class="<%= path === '/review' ? 'active' : '' %>"><i class="fa-solid fa-eye"></i> View Result</li></a>
+            <a href="/settings"><li class="<%= path === '/settings' ? 'active' : '' %>"><i class="fa fa-cog"></i> Settings</li></a>
+            <a href="/logout"><li><i class="fa-solid fa-right-from-bracket"></i> Logout</li></a>
+          </ul>
+        </nav>
+      </aside>
+
+  <main class="main-content">
+    <header>
+      <h1>Settings</h1><i class="fa-solid fa-gear"></i>
+      <button id="menu-btn" class="menu-btn">
+        <i class="fa fa-bars"></i>
+      </button>
+    </header>
+
+    <section class="settings-container">
+      
+      <!-- SESSION / TERM -->
+      <div class="settings-box">
+        <h2><i class="fa-solid fa-calendar-days"></i> Current Session / Term</h2>
+        <form id="session-form" action="/settings/session" method="POST">
+          <label for="session">Current Session:</label>
+          <input type="text" id="session" name="session" value="<%= currentSession || '' %>" placeholder="2025/2026" required>
+
+          <label for="term">Current Term:</label>
+          <select id="term" name="term" required>
+            <option <%= currentTerm === '1st Term' ? 'selected' : '' %>>1st Term</option>
+            <option <%= currentTerm === '2nd Term' ? 'selected' : '' %>>2nd Term</option>
+            <option <%= currentTerm === '3rd Term' ? 'selected' : '' %>>3rd Term</option>
+          </select>
+
+          <button type="submit" class="btn"><i class="fa-solid fa-save"></i> Update</button>
+        </form>
+      </div>
+
+      <!-- ADMIN PASSWORD -->
+      <div class="settings-box">
+        <h2><i class="fa-solid fa-lock"></i> Change Teachers Password</h2>
+        <form id="password-form" action="/settings/password" method="POST">
+          <input type="password" id="old-pass" name="oldPassword" placeholder="Old Password" required>
+          <input type="password" id="new-pass" name="newPassword" placeholder="New Password" required>
+          <input type="password" id="confirm-pass" name="confirmPassword" placeholder="Confirm Password" required>
+
+          <button type="submit" class="btn"><i class="fa-solid fa-key"></i> Update Password</button>
+        </form>
+      </div>
+
+    </section>
+  </main>
+   </div>
+
+  <script>
+    const menuBtn = document.getElementById('menu-btn');
+    const sidebar = document.getElementById('sidebar');
+    menuBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('active');
+    });
+  </script>
+</body>
+</html>
