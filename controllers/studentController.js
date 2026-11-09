@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import Student from "../models/studentModel.js";
-import { uploadToCloudinary } from "../config/cloudinary.js";
+import { uploadToCloudinary, extractPublicId, deleteFromCloudinary } from "../config/cloudinary.js";
 
 // Helper: Safely resolve Student document by either ObjectId or regNumber
 export const findStudentByIdOrReg = async (identifier) => {
@@ -91,7 +91,7 @@ export const addStudent = async (req, res) => {
           profilePhotoUrl = uploadRes.secure_url || uploadRes.url || null;
         } catch (uploadErr) {
           console.error("Cloudinary upload failed:", uploadErr.message);
-          return res.status(502).json({
+          return res.status(500).json({
             success: false,
             message: `Cloudinary photo upload failed: ${uploadErr.message}`
           });
@@ -112,11 +112,13 @@ export const addStudent = async (req, res) => {
       parentPhone: parentPhone ? parentPhone.trim() : "",
       parentEmail: parentEmail ? parentEmail.trim().toLowerCase() : "",
       profilePhoto: profilePhotoUrl,
+      isArchived: false,
     });
 
     return res.status(201).json({
       success: true,
       message: "Student created successfully",
+      data: student,
       student
     });
 
@@ -130,28 +132,51 @@ export const addStudent = async (req, res) => {
 };
 
 
-// @desc Get all active students (excluding archived records by default)
+// @desc Get all active students with pagination safeguards
 // @route GET /api/students
 export const getStudents = async (req, res) => {
   try {
-    // Mongoose query: Exclude archived students by default
-    let query = { isArchived: { $ne: true } };
-
-    // Support optional query parameter ?includeArchived=true if caller explicitly requests both
-    if (req.query.includeArchived === "true") {
-      delete query.isArchived;
+    // 1. Pagination parameters: page (default 1), limit (default 20, max 100)
+    let page = parseInt(req.query.page, 10);
+    if (isNaN(page) || page < 1) {
+      page = 1;
     }
 
-    // Scoped to teacher's assigned classes if teacher has class restrictions
+    let limit = parseInt(req.query.limit, 10);
+    if (isNaN(limit) || limit < 1) {
+      limit = 20;
+    } else if (limit > 100) {
+      limit = 100;
+    }
+
+    const skip = (page - 1) * limit;
+
+    // 2. Strict archive filter: Ensure { isArchived: false } is strictly enforced
+    const query = { isArchived: false };
+
+    // 3. Teacher Scope Validation: Limit to teacher's assigned classes if applicable
     if (req.user && req.user.role === "teacher" && req.user.assignedClasses && req.user.assignedClasses.length > 0) {
       query.classLevel = { $in: req.user.assignedClasses };
     }
 
-    const students = await Student.find(query).sort({ createdAt: -1 });
+    // 4. Mongoose query: Count total matching documents and fetch paginated page
+    const totalStudents = await Student.countDocuments(query);
+    const totalPages = Math.ceil(totalStudents / limit) || 1;
+
+    const students = await Student.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    // 5. Standardized response contract
     return res.status(200).json({
       success: true,
       count: students.length,
-      students
+      totalStudents,
+      totalPages,
+      currentPage: page,
+      data: students,
+      students // Included for backwards compatibility
     });
   } catch (error) {
     console.error("Error in getStudents:", error);
@@ -178,6 +203,7 @@ export const getArchivedStudents = async (req, res) => {
     return res.status(200).json({
       success: true,
       count: students.length,
+      data: students,
       students
     });
   } catch (error) {
@@ -222,6 +248,7 @@ export const archiveStudent = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: `Student '${student.name}' (${student.regNumber}) archived successfully`,
+      data: student,
       student
     });
   } catch (error) {
@@ -265,6 +292,7 @@ export const unarchiveStudent = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: `Student '${student.name}' (${student.regNumber}) restored/unarchived successfully`,
+      data: student,
       student
     });
   } catch (error) {
@@ -329,7 +357,7 @@ export const updateStudent = async (req, res) => {
           updateData.profilePhoto = uploadRes.secure_url || uploadRes.url || null;
         } catch (uploadErr) {
           console.error("Cloudinary upload failed on update:", uploadErr.message);
-          return res.status(502).json({
+          return res.status(500).json({
             success: false,
             message: `Cloudinary photo upload failed: ${uploadErr.message}`
           });
@@ -348,6 +376,7 @@ export const updateStudent = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Student updated successfully",
+      data: updated,
       student: updated
     });
 
@@ -356,6 +385,105 @@ export const updateStudent = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message || "Failed to update student"
+    });
+  }
+};
+
+
+// @desc Dedicated route to update a student's profile photo
+// @route PATCH /api/students/:id/photo
+export const updateStudentPhoto = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Validate that an image file was provided in the 'photo' field
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({
+        success: false,
+        message: "Photo file is required in 'photo' field"
+      });
+    }
+
+    // 2. Mongoose query: Locate student by either MongoDB ObjectId (if valid) or regNumber
+    const student = await findStudentByIdOrReg(id);
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found"
+      });
+    }
+
+    // 3. Authorization check: Scoped permissions for teachers, students, and parents
+    if (req.user && req.user.role === "teacher" && req.user.assignedClasses && req.user.assignedClasses.length > 0) {
+      if (!req.user.assignedClasses.includes(student.classLevel)) {
+        return res.status(403).json({
+          success: false,
+          message: `Access denied. You are only authorized to manage students in classes: ${req.user.assignedClasses.join(", ")}. Student is in ${student.classLevel}.`
+        });
+      }
+    } else if (req.user && req.user.role === "student") {
+      if (!req.user.student || req.user.student.toString() !== student._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied. You are only authorized to update your own profile photo."
+        });
+      }
+    } else if (req.user && req.user.role === "parent") {
+      if (!req.user.student || req.user.student.toString() !== student._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied. You are only authorized to update your child's profile photo."
+        });
+      }
+    }
+
+    // 4. Clean up previous photo from Cloudinary if one exists
+    if (student.profilePhoto) {
+      try {
+        const oldPublicId = extractPublicId(student.profilePhoto);
+        if (oldPublicId) {
+          await deleteFromCloudinary(oldPublicId);
+        }
+      } catch (cleanupErr) {
+        console.warn("Could not delete previous photo from Cloudinary:", cleanupErr.message);
+      }
+    }
+
+    // 5. Upload new image buffer to Cloudinary using CLOUDINARY_URL
+    let uploadRes;
+    try {
+      uploadRes = await uploadToCloudinary(req.file.buffer, "students");
+    } catch (uploadErr) {
+      console.error("Cloudinary upload failed on updateStudentPhoto:", uploadErr);
+      return res.status(500).json({
+        success: false,
+        message: `Cloudinary photo upload failed: ${uploadErr.message}`
+      });
+    }
+
+    if (!uploadRes || !uploadRes.secure_url) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to obtain secure URL from Cloudinary"
+      });
+    }
+
+    // 6. Mongoose query: Update student profilePhoto field with new secure_url and persist to MongoDB
+    student.profilePhoto = uploadRes.secure_url;
+    await student.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Student photo updated successfully",
+      data: student,
+      student
+    });
+
+  } catch (error) {
+    console.error("Error in updateStudentPhoto:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to update student photo"
     });
   }
 };
@@ -381,7 +509,8 @@ export const deleteStudent = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Student removed successfully"
+      message: "Student removed successfully",
+      data: { id: studentToDelete._id }
     });
   } catch (error) {
     console.error("Error in deleteStudent:", error);

@@ -42,9 +42,10 @@ router.delete("/:id", protect, async (req, res) => {
     
     console.log(`✅ Successfully deleted result ID: ${resultId}`);
     
-    res.json({ 
+    return res.status(200).json({ 
       success: true,
-      message: "Result deleted successfully" 
+      message: "Result deleted successfully",
+      data: { id: resultId }
     });
     
   } catch (error) {

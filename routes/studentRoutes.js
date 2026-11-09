@@ -6,10 +6,11 @@ import {
   archiveStudent,
   unarchiveStudent,
   updateStudent,
+  updateStudentPhoto,
   deleteStudent,
 } from "../controllers/studentController.js";
 
-import { protect, protectAdminOrTeacher } from "../middleware/authMiddleware.js";
+import { protect, protectAdminOrTeacher, protectAdminOrUser } from "../middleware/authMiddleware.js";
 import { upload } from "../config/cloudinary.js";
 
 const router = express.Router();
@@ -39,7 +40,7 @@ router.post(
   addStudent
 );
 
-// ⭐ Get all active students (excludes archived by default) - Admins & Teachers
+// ⭐ Get all active students (paginated & strictly unarchived) - Admins & Teachers
 router.get("/", protectAdminOrTeacher, getStudents);
 
 // ⭐ Get all archived students - Admins & Teachers (Must be defined before parameterized /:id routes)
@@ -51,7 +52,15 @@ router.patch("/:id/archive", protectAdminOrTeacher, archiveStudent);
 // ⭐ Restore / Unarchive student - Admins & Teachers
 router.patch("/:id/unarchive", protectAdminOrTeacher, unarchiveStudent);
 
-// ⭐ Update student (with profile photo replacement) - Admins & Teachers
+// ⭐ Dedicated Photo Update Route - Admins, Teachers & Students
+router.patch(
+  "/:id/photo",
+  protectAdminOrUser,
+  uploadStudentPhoto,
+  updateStudentPhoto
+);
+
+// ⭐ Update student details (with optional profile photo replacement) - Admins & Teachers
 router.put(
   "/:id",
   protectAdminOrTeacher,

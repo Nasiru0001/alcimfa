@@ -201,6 +201,7 @@ export const uploadResult = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Result uploaded successfully",
+      data: result,
       result
     });
 
@@ -350,6 +351,7 @@ export const updateResult = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Scores updated successfully",
+      data: result,
       result
     });
 
@@ -385,7 +387,12 @@ export const getStudentResult = async (req, res) => {
       return res.status(404).json({ success: false, message: "No result found" });
     }
 
-    return res.json({ success: true, result });
+    return res.status(200).json({
+      success: true,
+      message: "Result retrieved successfully",
+      data: result,
+      result
+    });
   } catch (err) {
     console.error("Error in getStudentResult:", err);
     return res.status(500).json({ success: false, message: err.message });

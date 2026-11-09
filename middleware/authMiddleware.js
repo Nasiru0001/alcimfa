@@ -26,7 +26,7 @@ export const protect = async (req, res, next) => {
       req.admin = await Admin.findById(decoded.id).select("-password");
 
       if (!req.admin) {
-        return res.status(401).json({ message: "Not authorized, admin not found" });
+        return res.status(401).json({ success: false, message: "Not authorized, admin not found" });
       }
 
       return next();
@@ -34,14 +34,14 @@ export const protect = async (req, res, next) => {
       console.error("Token verification failed:", error);
       
       if (error.name === "TokenExpiredError") {
-        return res.status(401).json({ message: "Token expired, please login again" });
+        return res.status(401).json({ success: false, message: "Token expired, please login again" });
       }
       
-      return res.status(401).json({ message: "Not authorized, token failed" });
+      return res.status(401).json({ success: false, message: "Not authorized, token failed" });
     }
   }
 
-  return res.status(401).json({ message: "Not authorized, no token provided" });
+  return res.status(401).json({ success: false, message: "Not authorized, no token provided" });
 };
 
 // Admin only middleware
@@ -49,7 +49,7 @@ export const adminOnly = (req, res, next) => {
   if (req.admin) {
     return next();
   } else {
-    return res.status(403).json({ message: "Access denied. Admin only." });
+    return res.status(403).json({ success: false, message: "Access denied. Admin only." });
   }
 };
 
@@ -151,27 +151,28 @@ export const protectAdminOrUser = async (req, res, next) => {
       if (user) {
         if (!user.isActive) {
           return res.status(403).json({ 
+            success: false,
             message: "Account is deactivated. Please contact admin." 
           });
         }
         req.user = user;
-        req.userType = "user";
+        req.userType = user.role || "user";
         return next();
       }
 
-      return res.status(401).json({ message: "Not authorized, account not found" });
+      return res.status(401).json({ success: false, message: "Not authorized, account not found" });
     } catch (error) {
       console.error("Token verification failed:", error);
       
       if (error.name === "TokenExpiredError") {
-        return res.status(401).json({ message: "Token expired, please login again" });
+        return res.status(401).json({ success: false, message: "Token expired, please login again" });
       }
       
-      return res.status(401).json({ message: "Not authorized, token failed" });
+      return res.status(401).json({ success: false, message: "Not authorized, token failed" });
     }
   }
 
-  return res.status(401).json({ message: "Not authorized, no token provided" });
+  return res.status(401).json({ success: false, message: "Not authorized, no token provided" });
 };
 
 // ==========================================
