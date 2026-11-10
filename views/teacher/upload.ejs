@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>
+    <%= typeof title !=='undefined' ? title : 'Upload Student Results' %>
+  </title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/css/teacher-style.css">
+  <link href="https://fonts.cdnfonts.com/css/manrope" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+
+<body>
+  <div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+      <img src="/img/logo.png" width="150px" class="logo" alt="students">
+
+      <nav>
+        <ul>
+          <a href="/teacher/dashboard">
+            <li class="<%= path === '/teacher/dashboard' || path === '/dashboard' ? 'active' : '' %>"><i
+                class="fa fa-home"></i> Home</li>
+          </a>
+          <a href="/teacher/students">
+            <li class="<%= path === '/teacher/students' || path === '/students' ? 'active' : '' %>"><i
+                class="fa fa-users"></i> Students</li>
+          </a>
+          <a href="/teacher/upload">
+            <li class="<%= path === '/teacher/upload' || path === '/upload' ? 'active' : '' %>"><i
+                class="fa-solid fa-upload"></i> Upload Result</li>
+          </a>
+          <a href="/teacher/review">
+            <li class="<%= path === '/teacher/review' || path === '/review' ? 'active' : '' %>"><i
+                class="fa-solid fa-eye"></i> View Result</li>
+          </a>
+          <a href="/teacher/settings">
+            <li class="<%= path === '/teacher/settings' || path === '/settings' ? 'active' : '' %>"><i
+                class="fa-solid fa-cog"></i> Settings</li>
+          </a>
+          <a href="/teacher/logout">
+            <li><i class="fa-solid fa-right-from-bracket"></i> Logout</li>
+          </a>
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header>
+        <h1>Upload Results</h1><i class="fa-solid fa-upload"></i>
+        <button id="menu-btn" class="menu-btn">
+          <i class="fa fa-bars"></i>
+        </button>
+      </header>
+
+      <% if (locals.error) { %>
+        <div style="background: #f8d7da; color: #721c24; padding: 12px; border-radius: 6px; margin: 15px 0;">
+          ❌ <%= error %>
+        </div>
+        <% } %>
+
+          <% if (locals.success) { %>
+            <div style="background: #d4edda; color: #155724; padding: 12px; border-radius: 6px; margin: 15px 0;">
+              ✅ <%= success %>
+            </div>
+            <% } %>
+
+              <section class="upload-container">
+                <!-- MANUAL UPLOAD -->
+                <div class="upload-box" style="width: 100%;">
+                  <h2 style="color: black;"><i class="fa-solid fa-pen"></i> Record Assessment Scores</h2>
+
+                  <form id="manual-form" action="/teacher/upload/manual" method="POST"
+                    style="margin-left: 0; background: #fdfdfd; border: 1px solid #ddd; padding: 25px; border-radius: 12px; color: #333;">
+                    <div class="form-row" style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
+                      <div style="flex: 1; min-width: 180px;">
+                        <label for="class" style="display: block; font-weight: bold; margin-bottom: 5px;">Class
+                          Level:</label>
+                        <select id="class" name="class" required
+                          style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+                          <option value="">Select Class</option>
+                          <% if (locals.assignedClassesList && assignedClassesList.length> 0) { %>
+                            <% assignedClassesList.forEach(c=> { %>
+                              <option value="<%= c %>">
+                                <%= c %>
+                              </option>
+                              <% }) %>
+                                <% } else { %>
+                                  <option>JSS1</option>
+                                  <option>JSS2</option>
+                                  <option>JSS3</option>
+                                  <option>SS1</option>
+                                  <option>SS2</option>
+                                  <option>SS3</option>
+                                  <% } %>
+                        </select>
+                      </div>
+
+                      <div style="flex: 1; min-width: 180px;">
+                        <label for="term" style="display: block; font-weight: bold; margin-bottom: 5px;">Academic
+                          Term:</label>
+                        <select id="term" name="term" required
+                          style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+                          <option value="First Term">First Term</option>
+                          <option value="Second Term">Second Term</option>
+                          <option value="Third Term">Third Term</option>
+                        </select>
+                      </div>
+
+                      <div style="flex: 1; min-width: 180px;">
+                        <label for="session" style="display: block; font-weight: bold; margin-bottom: 5px;">Academic
+                          Session:</label>
+                        <input type="text" id="session" name="session"
+                          value="<%= typeof currentSession !== 'undefined' ? currentSession : '2024/2025' %>" required
+                          style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+                      </div>
+                    </div>
+
+                    <div class="form-row" style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
+                      <div style="flex: 2; min-width: 220px;">
+                        <label for="studentIdentifier"
+                          style="display: block; font-weight: bold; margin-bottom: 5px;">Student (Reg Number or
+                          Name):</label>
+                        <input type="text" id="studentIdentifier" name="studentIdentifier"
+                          value="<%= typeof queryStudentId !== 'undefined' ? queryStudentId : '' %>"
+                          placeholder="e.g. STU-JSS1-001 or Student Name" required
+                          style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+                      </div>
+
+                      <div style="flex: 1; min-width: 180px;">
+                        <label for="subject"
+                          style="display: block; font-weight: bold; margin-bottom: 5px;">Subject:</label>
+                        <% if (locals.assignedSubjectsList && assignedSubjectsList.length> 0) { %>
+                          <select id="subject" name="subject" required
+                            style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+                            <% assignedSubjectsList.forEach(s=> { %>
+                              <% const subVal=typeof s==='string' ? s : s.subjectName; %>
+                                <% const subLabel=typeof s==='string' ? s : `${s.subjectName} (${s.classLevel})`; %>
+                                  <option value="<%= subVal %>">
+                                    <%= subLabel %>
+                                  </option>
+                                  <% }) %>
+                          </select>
+                          <% } else { %>
+                            <input type="text" id="subject" name="subject" placeholder="e.g. Mathematics" required
+                              style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+                            <% } %>
+                      </div>
+                    </div>
+
+                    <div class="form-row" style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;">
+                      <div style="flex: 1; min-width: 140px;">
+                        <label for="ca1" style="display: block; font-weight: bold; margin-bottom: 5px;">CA 1 (Max
+                          20):</label>
+                        <input type="number" id="ca1" name="ca1" placeholder="0 - 20" min="0" max="20" required
+                          style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+                      </div>
+
+                      <div style="flex: 1; min-width: 140px;">
+                        <label for="ca2" style="display: block; font-weight: bold; margin-bottom: 5px;">CA 2 (Max
+                          20):</label>
+                        <input type="number" id="ca2" name="ca2" placeholder="0 - 20" min="0" max="20"
+                          style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+                      </div>
+
+                      <div style="flex: 1; min-width: 140px;">
+                        <label for="exam" style="display: block; font-weight: bold; margin-bottom: 5px;">Exam (Max
+                          70):</label>
+                        <input type="number" id="exam" name="exam" placeholder="0 - 70" min="0" max="70" required
+                          style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+                      </div>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                      <label for="teacherRemark"
+                        style="display: block; font-weight: bold; margin-bottom: 5px;">Teacher's Remark:</label>
+                      <input type="text" id="teacherRemark" name="teacherRemark"
+                        placeholder="e.g. Excellent progress this term"
+                        style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+                    </div>
+
+                    <button type="submit" class="btn"
+                      style="background: #0066cc; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                      <i class="fa-solid fa-save"></i> Save Assessment Score
+                    </button>
+                  </form>
+
+                  <table id="results-table"
+                    style="width: 100%; text-align: left; border-collapse: collapse; margin-top: 25px;">
+                    <thead>
+                      <tr style="background: rgba(0,0,0,0.05);">
+                        <th style="padding: 10px;">Student</th>
+                        <th style="padding: 10px;">Class</th>
+                        <th style="padding: 10px;">Term</th>
+                        <th style="padding: 10px;">Subject</th>
+                        <th style="padding: 10px;">CA</th>
+                        <th style="padding: 10px;">Exam</th>
+                        <th style="padding: 10px;">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <% if (locals.uploadedResults && uploadedResults.length> 0) { %>
+                        <% uploadedResults.forEach(r=> { %>
+                          <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 10px; font-weight: bold;">
+                              <%= r.studentName %>
+                            </td>
+                            <td style="padding: 10px;">
+                              <%= r.class %>
+                            </td>
+                            <td style="padding: 10px;">
+                              <%= r.term %>
+                            </td>
+                            <td style="padding: 10px;">
+                              <%= r.subject %>
+                            </td>
+                            <td style="padding: 10px;">
+                              <%= r.ca %>
+                            </td>
+                            <td style="padding: 10px;">
+                              <%= r.exam %>
+                            </td>
+                            <td style="padding: 10px; font-weight: bold;">
+                              <%= r.total %> (<%= r.grade %>)
+                            </td>
+                          </tr>
+                          <% }) %>
+                            <% } else { %>
+                              <tr>
+                                <td colspan="7" style="padding: 20px; text-align: center; color: #777;">No recent scores
+                                  recorded yet.</td>
+                              </tr>
+                              <% } %>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+    </main>
+  </div>
+
+  <script>
+    const menuBtn = document.getElementById('menu-btn');
+    const sidebar = document.getElementById('sidebar');
+    if (menuBtn && sidebar) {
+      menuBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('active');
+      });
+    }
+  </script>
+</body>
+
+</html>

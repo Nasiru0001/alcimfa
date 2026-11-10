@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= typeof title !== 'undefined' ? title : 'Teacher Login' %></title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/css/teacher-style.css">
+    <link href="https://fonts.cdnfonts.com/css/manrope" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body>
+    <div class="bg"></div>
+    <div class="form-container">
+        <img src="/img/logo-removebg-preview.png" width="600px" alt="Al-cimfa">
+
+        <form action="/teacher/login" method="POST">
+            <h1 style="text-align: center; color: white;">Teacher Login</h1> <br>
+            
+            <% if (locals.error) { %>
+              <p style="color: #ffcccc; background: rgba(255,0,0,0.2); padding: 8px; border-radius: 6px; text-align: center;"><%= error %></p> <br>
+            <% } %>
+
+            <% if (locals.success) { %>
+              <p style="color: #d4edda; background: rgba(0,255,0,0.2); padding: 8px; border-radius: 6px; text-align: center;"><%= success %></p> <br>
+            <% } %>
+
+            <div class="input-container">
+                <label for="username">Username or Email</label> <br>
+                <i class="fa fa-user"></i>
+                <input type="text" id="username" name="username" placeholder="Username or Email" required>
+            </div>
+            <div class="input-container">
+                <label for="password">Password</label> <br>
+                <i class="fa fa-lock"></i>
+                <input type="password" id="password" name="password" placeholder="Password" required>
+            </div>
+            <button type="submit">Login</button>
+
+            <p style="text-align: center; margin-top: 15px; font-size: 13px;">
+              <a href="/admin/login" style="color: #f0f0f0; text-decoration: underline;">Admin Login</a> &bull; 
+              <a href="/user/login" style="color: #f0f0f0; text-decoration: underline;">Student / Parent</a>
+            </p>
+        </form>
+    </div>
+</body>
+</html>

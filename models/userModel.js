@@ -1,6 +1,22 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
+const assignedSubjectSchema = new mongoose.Schema(
+  {
+    subjectName: {
+      type: String,
+      required: [true, "Subject name is required"],
+      trim: true,
+    },
+    classLevel: {
+      type: String,
+      required: [true, "Class level is required"],
+      trim: true,
+    },
+  },
+  { _id: false }
+);
+
 const userSchema = new mongoose.Schema(
   {
     name: {
@@ -34,7 +50,7 @@ const userSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Student",
       // Required only for students and parents
-      required: function() {
+      required: function () {
         return this.role === "student" || this.role === "parent";
       },
     },
@@ -43,7 +59,7 @@ const userSchema = new mongoose.Schema(
       default: [],
     },
     assignedSubjects: {
-      type: [String],
+      type: [assignedSubjectSchema],
       default: [],
     },
     phoneNumber: {
@@ -58,7 +74,7 @@ const userSchema = new mongoose.Schema(
       type: Date,
     },
   },
-  { 
+  {
     timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
@@ -68,7 +84,7 @@ const userSchema = new mongoose.Schema(
 // Hash password before saving
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
-  
+
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   next();

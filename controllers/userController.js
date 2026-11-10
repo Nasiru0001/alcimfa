@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import User from "../models/userModel.js";
 import Student from "../models/studentModel.js";
 import bcrypt from "bcryptjs";
@@ -16,14 +17,14 @@ export const loginUser = async (req, res) => {
       if (req.accepts("html") && !req.is("json")) {
         return res.render("user/login", { error: "Invalid email or password", title: "User Login" });
       }
-      return res.status(401).json({ message: "Invalid email or password" });
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
 
     if (!user.isActive) {
       if (req.accepts("html") && !req.is("json")) {
         return res.render("user/login", { error: "Account is deactivated", title: "User Login" });
       }
-      return res.status(403).json({ message: "Account is deactivated" });
+      return res.status(403).json({ success: false, message: "Account is deactivated" });
     }
 
     const isMatch = await user.comparePassword(password);
@@ -31,7 +32,7 @@ export const loginUser = async (req, res) => {
       if (req.accepts("html") && !req.is("json")) {
         return res.render("user/login", { error: "Invalid email or password", title: "User Login" });
       }
-      return res.status(401).json({ message: "Invalid email or password" });
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
 
     // Generate JWT token
@@ -49,15 +50,24 @@ export const loginUser = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        assignedSubjects: user.assignedSubjects || [],
+        assignedClasses: user.assignedClasses || [],
       };
+      if (user.role === "teacher") {
+        req.session.teacher = req.session.user;
+      }
       req.session.userToken = token;
     }
 
     if (req.accepts("html") && !req.is("json")) {
+      if (user.role === "teacher") {
+        return res.redirect("/teacher/dashboard");
+      }
       return res.redirect("/user/dashboard");
     }
 
     return res.json({
+      success: true,
       message: "Login successful",
       token,
       user: {
@@ -65,6 +75,8 @@ export const loginUser = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        assignedSubjects: user.assignedSubjects || [],
+        assignedClasses: user.assignedClasses || [],
       },
     });
   } catch (err) {
@@ -72,7 +84,7 @@ export const loginUser = async (req, res) => {
     if (req.accepts("html") && !req.is("json")) {
       return res.render("user/login", { error: "Something went wrong", title: "User Login" });
     }
-    return res.status(500).json({ message: err.message });
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -87,10 +99,11 @@ export const getUserProfile = async (req, res) => {
       .populate("student", "name regNumber classLevel session");
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
 
     res.json({
+      success: true,
       _id: user._id,
       name: user.name,
       email: user.email,
@@ -98,11 +111,13 @@ export const getUserProfile = async (req, res) => {
       phoneNumber: user.phoneNumber,
       student: user.student,
       isActive: user.isActive,
+      assignedSubjects: user.assignedSubjects || [],
+      assignedClasses: user.assignedClasses || [],
       lastLogin: user.lastLogin,
       createdAt: user.createdAt,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -133,8 +148,8 @@ export const updateUserProfile = async (req, res) => {
     // Update password if provided
     if (req.body.password) {
       if (req.body.password.length < 6) {
-        return res.status(400).json({ 
-          message: "Password must be at least 6 characters" 
+        return res.status(400).json({
+          message: "Password must be at least 6 characters"
         });
       }
       user.password = req.body.password;
@@ -165,14 +180,14 @@ export const changeUserPassword = async (req, res) => {
     const { currentPassword, newPassword } = req.body;
 
     if (!currentPassword || !newPassword) {
-      return res.status(400).json({ 
-        message: "Current password and new password are required" 
+      return res.status(400).json({
+        message: "Current password and new password are required"
       });
     }
 
     if (newPassword.length < 6) {
-      return res.status(400).json({ 
-        message: "New password must be at least 6 characters" 
+      return res.status(400).json({
+        message: "New password must be at least 6 characters"
       });
     }
 
@@ -260,7 +275,7 @@ export const updateUser = async (req, res) => {
     user.role = req.body.role || user.role;
     user.phoneNumber = req.body.phoneNumber || user.phoneNumber;
     user.isActive = req.body.isActive !== undefined ? req.body.isActive : user.isActive;
-    
+
     if (req.body.student) {
       user.student = req.body.student;
     }
@@ -290,9 +305,9 @@ export const deleteUser = async (req, res) => {
     const user = await User.findById(req.params.id);
 
     if (!user) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "User not found" 
+        message: "User not found"
       });
     }
 
@@ -309,22 +324,22 @@ export const deleteUser = async (req, res) => {
     }
 
     // Otherwise return JSON (for DELETE method or AJAX)
-    res.json({ 
+    res.json({
       success: true,
-      message: "User deleted successfully" 
+      message: "User deleted successfully"
     });
   } catch (error) {
     console.error("❌ Delete user error:", error);
-    
+
     // If POST request, redirect with error
     if (req.method === 'POST' && req.path.endsWith('/delete')) {
       return res.redirect("/admin/users?error=" + error.message);
     }
-    
+
     // Otherwise return JSON error
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: error.message 
+      message: error.message
     });
   }
 };
@@ -363,8 +378,91 @@ export const activateUser = async (req, res) => {
     user.isActive = true;
     await user.save();
 
-     return res.redirect("/admin/users");
+    return res.redirect("/admin/users");
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
+// @desc    Assign subjects and class levels to a teacher
+// @route   PATCH /api/admin/teachers/:id/assign-subjects
+// @access  Private (Admin only)
+export const assignTeacherSubjects = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { assignedSubjects } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid teacher ID format",
+      });
+    }
+
+    if (!assignedSubjects || !Array.isArray(assignedSubjects)) {
+      return res.status(400).json({
+        success: false,
+        message: "assignedSubjects must be an array of { subjectName, classLevel } objects",
+      });
+    }
+
+    for (const item of assignedSubjects) {
+      if (!item || typeof item !== "object" || !item.subjectName || !item.classLevel) {
+        return res.status(400).json({
+          success: false,
+          message: "Each assigned subject must have both 'subjectName' and 'classLevel'",
+        });
+      }
+    }
+
+    const teacher = await User.findById(id);
+    if (!teacher) {
+      return res.status(404).json({
+        success: false,
+        message: "Teacher not found",
+      });
+    }
+
+    if (teacher.role !== "teacher") {
+      return res.status(400).json({
+        success: false,
+        message: "Target user is not a teacher",
+      });
+    }
+
+    const formatted = assignedSubjects.map((s) => ({
+      subjectName: s.subjectName.trim(),
+      classLevel: s.classLevel.trim(),
+    }));
+
+    teacher.assignedSubjects = formatted;
+
+    // Automatically sync assignedClasses with unique class levels
+    const uniqueClasses = [...new Set(formatted.map((s) => s.classLevel))];
+    if (uniqueClasses.length > 0) {
+      teacher.assignedClasses = uniqueClasses;
+    }
+
+    await teacher.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Teacher subjects assigned successfully",
+      data: {
+        _id: teacher._id,
+        name: teacher.name,
+        email: teacher.email,
+        role: teacher.role,
+        assignedSubjects: teacher.assignedSubjects,
+        assignedClasses: teacher.assignedClasses,
+      },
+    });
+  } catch (error) {
+    console.error("Error in assignTeacherSubjects:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to assign subjects to teacher",
+    });
+  }
+};
+

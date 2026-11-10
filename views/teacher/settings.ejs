@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>
+    <%= typeof title !=='undefined' ? title : 'Settings' %>
+  </title>
+  <link href="https://fonts.cdnfonts.com/css/manrope" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/css/teacher-style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+
+<body>
+
+  <div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+      <img src="/img/logo.png" width="150px" class="logo" alt="students">
+
+      <nav>
+        <ul>
+          <a href="/teacher/dashboard">
+            <li class="<%= path === '/teacher/dashboard' || path === '/dashboard' ? 'active' : '' %>"><i
+                class="fa fa-home"></i> Home</li>
+          </a>
+          <a href="/teacher/students">
+            <li class="<%= path === '/teacher/students' || path === '/students' ? 'active' : '' %>"><i
+                class="fa fa-users"></i> Students</li>
+          </a>
+          <a href="/teacher/upload">
+            <li class="<%= path === '/teacher/upload' || path === '/upload' ? 'active' : '' %>"><i
+                class="fa-solid fa-upload"></i> Upload Result</li>
+          </a>
+          <a href="/teacher/review">
+            <li class="<%= path === '/teacher/review' || path === '/review' ? 'active' : '' %>"><i
+                class="fa-solid fa-eye"></i> View Result</li>
+          </a>
+          <a href="/teacher/settings">
+            <li class="<%= path === '/teacher/settings' || path === '/settings' ? 'active' : '' %>"><i
+                class="fa-cog fa"></i> Settings</li>
+          </a>
+          <a href="/teacher/logout">
+            <li><i class="fa-solid fa-right-from-bracket"></i> Logout</li>
+          </a>
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header>
+        <h1>Settings</h1><i class="fa-solid fa-gear"></i>
+        <button id="menu-btn" class="menu-btn">
+          <i class="fa fa-bars"></i>
+        </button>
+      </header>
+
+      <% if (locals.error) { %>
+        <div style="background: #f8d7da; color: #721c24; padding: 12px; border-radius: 6px; margin: 15px 0;">
+          ❌ <%= error %>
+        </div>
+        <% } %>
+
+          <% if (locals.success) { %>
+            <div style="background: #d4edda; color: #155724; padding: 12px; border-radius: 6px; margin: 15px 0;">
+              ✅ <%= success %>
+            </div>
+            <% } %>
+
+              <section class="settings-container" style="display: flex; gap: 20px; flex-wrap: wrap;">
+
+                <!-- TEACHER PROFILE INFO -->
+                <div class="settings-box card" style="flex: 1; min-width: 280px; padding: 25px;">
+                  <h2><i class="fa-solid fa-user-circle"></i> Teacher Profile</h2>
+                  <div style="margin-top: 15px; line-height: 1.8;">
+                    <p><strong>Name:</strong>
+                      <%= locals.teacher ? teacher.name : '-' %>
+                    </p>
+                    <p><strong>Email:</strong>
+                      <%= locals.teacher ? teacher.email : '-' %>
+                    </p>
+                    <p><strong>Assigned Classes:</strong>
+                      <%= (locals.teacher && teacher.assignedClasses && teacher.assignedClasses.length> 0) ?
+                        teacher.assignedClasses.join(', ') : 'All Classes' %>
+                    </p>
+                    <p><strong>Assigned Subjects:</strong>
+                      <%= (locals.teacher && teacher.assignedSubjects && teacher.assignedSubjects.length> 0) ?
+                        teacher.assignedSubjects.map(s => typeof s === 'string' ? s : `${s.subjectName}
+                        (${s.classLevel})`).join(', ') : 'All Subjects' %>
+                    </p>
+                  </div>
+                </div>
+
+                <!-- PASSWORD CHANGE -->
+                <div class="settings-box card" style="flex: 1; min-width: 280px; padding: 25px;">
+                  <h2><i class="fa-solid fa-lock"></i> Change Password</h2>
+                  <form id="password-form" action="/teacher/settings/password" method="POST"
+                    style="margin-left: 0; background: none; padding: 0;">
+                    <div style="margin: 12px 0;">
+                      <label for="oldPassword" style="display: block; margin-bottom: 5px; font-weight: bold;">Old
+                        Password:</label>
+                      <input type="password" id="oldPassword" name="oldPassword" placeholder="Enter current password"
+                        required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+                    </div>
+
+                    <div style="margin: 12px 0;">
+                      <label for="newPassword" style="display: block; margin-bottom: 5px; font-weight: bold;">New
+                        Password:</label>
+                      <input type="password" id="newPassword" name="newPassword" placeholder="Minimum 6 characters"
+                        required minlength="6"
+                        style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+                    </div>
+
+                    <div style="margin: 12px 0;">
+                      <label for="confirmPassword"
+                        style="display: block; margin-bottom: 5px; font-weight: bold;">Confirm New Password:</label>
+                      <input type="password" id="confirmPassword" name="confirmPassword"
+                        placeholder="Confirm new password" required minlength="6"
+                        style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc;">
+                    </div>
+
+                    <button type="submit" class="btn"
+                      style="background: #0066cc; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px;">
+                      <i class="fa-solid fa-key"></i> Update Password
+                    </button>
+                  </form>
+                </div>
+
+              </section>
+    </main>
+  </div>
+
+  <script>
+    const menuBtn = document.getElementById('menu-btn');
+    const sidebar = document.getElementById('sidebar');
+    if (menuBtn && sidebar) {
+      menuBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('active');
+      });
+    }
+  </script>
+</body>
+
+</html>

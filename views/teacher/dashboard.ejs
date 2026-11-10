@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= typeof title !== 'undefined' ? title : 'Teacher Dashboard' %></title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/css/teacher-style.css">
+  <link href="https://fonts.cdnfonts.com/css/manrope" rel="stylesheet">
+</head>
+<body>
+
+  <div class="dashboard">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <img src="/img/logo.png" width="150px" class="logo" alt="logo">
+
+      <nav>
+        <ul>
+          <a href="/teacher/dashboard"><li class="<%= path === '/teacher/dashboard' || path === '/dashboard' ? 'active' : '' %>"><i class="fa fa-home"></i> Home</li></a>
+          <a href="/teacher/students"><li class="<%= path === '/teacher/students' || path === '/students' ? 'active' : '' %>"><i class="fa fa-users"></i> Students</li></a>
+          <a href="/teacher/upload"><li class="<%= path === '/teacher/upload' || path === '/upload' ? 'active' : '' %>"><i class="fa-solid fa-upload"></i> Upload Result</li></a>
+          <a href="/teacher/review"><li class="<%= path === '/teacher/review' || path === '/review' ? 'active' : '' %>"><i class="fa-solid fa-eye"></i> View Result</li></a>
+          <a href="/teacher/settings"><li class="<%= path === '/teacher/settings' || path === '/settings' ? 'active' : '' %>"><i class="fa fa-cog"></i> Settings</li></a>
+          <a href="/teacher/logout"><li><i class="fa-solid fa-right-from-bracket"></i> Logout</li></a>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <header>
+        <h1>Teacher Dashboard</h1><i class="fa fa-dashboard"></i>
+        <button id="menu-btn" class="menu-btn">
+          <i class="fa fa-bars"></i>
+        </button>
+      </header>
+
+      <div class="cards">
+        <div class="card">
+          <h1>Hello, <%= typeof teacherName !== 'undefined' ? teacherName : (locals.teacher ? teacher.name : 'Teacher') %></h1>
+        </div>
+      </div>
+
+      <section class="cards">
+        <div class="card"><i class="fa fa-users"></i> Assigned Classes: <%= typeof assignedClasses !== 'undefined' ? assignedClasses : 'N/A' %></div>
+        <div class="card"><i class="fa fa-book"></i> Subject: <%= typeof subject !== 'undefined' ? subject : 'N/A' %></div>
+        <div class="card"><i class="fa fa-user-graduate"></i> No. of Students: <%= typeof studentCount !== 'undefined' ? studentCount : 0 %></div>
+        <div class="card"><i class="fa fa-file-lines"></i> Total Results: <%= typeof totalResults !== 'undefined' ? totalResults : (typeof pendingResults !== 'undefined' ? pendingResults : 0) %></div>
+        <div class="card"><a href="/teacher/upload" class="none"><i class="fa-solid fa-upload"></i> Upload New Results</a></div>
+      </section>
+
+      <div class="cards">
+        <h2>My Classes</h2>
+        <div class="card"><%= typeof myClasses !== 'undefined' ? myClasses : 'e.g JSS1' %></div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Toggle sidebar open/close
+    const menuBtn = document.getElementById('menu-btn');
+    const sidebar = document.getElementById('sidebar');
+
+    if (menuBtn && sidebar) {
+      menuBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('active');
+      });
+    }
+  </script>
+
+</body>
+</html>

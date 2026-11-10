@@ -17,6 +17,7 @@ import userRoutes from "./routes/userRoutes.js";
 // Import VIEW route
 import adminViewRoutes from "./routes/adminViewRoutes.js";
 import userViewRoutes from "./routes/userViewRoutes.js";
+import teacherViewRoutes from "./routes/teacherViewRoutes.js";
 import connectDB from "./config/db.js";
 
 dotenv.config();
@@ -28,7 +29,7 @@ const __dirname = path.dirname(__filename);
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
 app.use(morgan("dev"));
 
 // MongoDB URI
@@ -47,6 +48,7 @@ app.use(session({
 app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
   res.locals.admin = req.session.admin || null;
+  res.locals.teacher = req.session.teacher || (req.session.user && req.session.user.role === 'teacher' ? req.session.user : null);
   next();
 });
 
@@ -68,6 +70,18 @@ app.use("/api/scores", resultRoutes);
 // VIEW Routes
 app.use("/admin", adminViewRoutes);
 app.use("/user", userViewRoutes);
+app.use("/teacher", teacherViewRoutes);
+
+// Direct navigation shortcuts
+app.get("/teacher", (req, res) => res.redirect("/teacher/dashboard"));
+app.get("/dashboard", (req, res) => {
+  if (req.session?.admin) return res.redirect("/admin/dashboard");
+  if (req.session?.teacher || req.session?.user?.role === "teacher") return res.redirect("/teacher/dashboard");
+  if (req.session?.user) return res.redirect("/user/dashboard");
+  res.redirect("/user/login");
+});
+app.get("/login", (req, res) => res.redirect("/user/login"));
+app.get("/adminlogin", (req, res) => res.redirect("/admin/login"));
 
 // Root routes (public pages)
 app.get("/", (req, res) => {
