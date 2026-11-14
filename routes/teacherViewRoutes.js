@@ -1,9 +1,11 @@
 import express from "express";
+import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
 import Student from "../models/studentModel.js";
 import Result from "../models/resultModel.js";
 import { requireTeacherAuth, redirectIfLoggedIn } from "../middleware/renderMiddleware.js";
 import { findStudentByIdOrReg } from "../controllers/studentController.js";
+import { loginStaff } from "../controllers/authController.js";
 import bcrypt from "bcryptjs";
 
 const router = express.Router();
@@ -21,90 +23,17 @@ const computeGradeAndRemark = (total) => {
 // 1. AUTHENTICATION & LOGIN
 // ==========================================
 
-// Teacher login page
+// Teacher login page - Redirect to unified Staff Portal
 router.get("/login", redirectIfLoggedIn, (req, res) => {
-  res.render("teacher/login", {
-    title: "Teacher Login",
-    error: req.query.error || null,
-    success: req.query.success || null,
-  });
+  res.redirect("/admin/login");
 });
 
-// Process teacher login
-router.post("/login", async (req, res) => {
-  try {
-    const { username, password } = req.body;
-
-    if (!username || !password) {
-      return res.render("teacher/login", {
-        title: "Teacher Login",
-        error: "Please enter your username/email and password",
-      });
-    }
-
-    const trimmed = username.trim();
-    // Allow login by email or name
-    const user = await User.findOne({
-      $or: [
-        { email: trimmed.toLowerCase() },
-        { name: new RegExp(`^${trimmed}$`, "i") }
-      ]
-    }).select("+password");
-
-    if (!user) {
-      return res.render("teacher/login", {
-        title: "Teacher Login",
-        error: "Invalid username/email or password",
-      });
-    }
-
-    if (user.role !== "teacher") {
-      return res.render("teacher/login", {
-        title: "Teacher Login",
-        error: "Access denied. Only teacher accounts can access this portal.",
-      });
-    }
-
-    if (!user.isActive) {
-      return res.render("teacher/login", {
-        title: "Teacher Login",
-        error: "Your account is deactivated. Please contact administration.",
-      });
-    }
-
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.render("teacher/login", {
-        title: "Teacher Login",
-        error: "Invalid username/email or password",
-      });
-    }
-
-    // Save session
-    req.session.teacher = {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: "teacher",
-      assignedClasses: user.assignedClasses || [],
-      assignedSubjects: user.assignedSubjects || [],
-    };
-    req.session.user = req.session.teacher;
-
-    await user.updateLastLogin();
-
-    return res.redirect("/teacher/dashboard");
-  } catch (error) {
-    console.error("Teacher login error:", error);
-    return res.render("teacher/login", {
-      title: "Teacher Login",
-      error: "An unexpected error occurred during login",
-    });
-  }
-});
+// Process teacher login (supports legacy POST /teacher/login via unified staff login)
+router.post("/login", loginStaff);
 
 // Teacher logout
 router.get("/logout", (req, res) => {
+  res.clearCookie("token");
   delete req.session.teacher;
   if (req.session.user && req.session.user.role === "teacher") {
     delete req.session.user;

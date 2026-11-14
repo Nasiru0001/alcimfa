@@ -1,88 +1,160 @@
 import mongoose from "mongoose";
 import User from "../models/userModel.js";
 import Student from "../models/studentModel.js";
+import Admin from "../models/adminModel.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-// @desc    Login user
-// @route   POST /api/users/login
+// @desc    Login user (supports JSON API & HTML form cookie auth)
+// @route   POST /api/users/login, POST /login, POST /user/login
 // @access  Public
 
 export const loginUser = async (req, res) => {
-  const { email, password } = req.body;
+  const isJson = req.is("json") || (req.headers.accept && req.headers.accept.includes("application/json") && !req.headers.accept.includes("text/html"));
+  const isHtml = !isJson && (
+    (req.accepts && req.accepts("html")) ||
+    (req.headers["content-type"] && req.headers["content-type"].includes("application/x-www-form-urlencoded"))
+  );
+
+  const identifier = (req.body.email || req.body.username || "").trim();
+  const password = req.body.password;
+
+  if (!identifier || !password) {
+    if (isHtml) {
+      return res.render("user/login", { error: "Please enter both email/username and password", title: "User Login" });
+    }
+    return res.status(400).json({ success: false, message: "Please enter both email/username and password" });
+  }
 
   try {
-    const user = await User.findOne({ email }).select("+password");
-    if (!user) {
-      if (req.accepts("html") && !req.is("json")) {
+    // 1. Check User collection first
+    let account = await User.findOne({
+      $or: [
+        { email: identifier.toLowerCase() },
+        { name: new RegExp(`^${identifier}$`, "i") }
+      ]
+    }).select("+password");
+
+    let role = account ? account.role : null;
+    let isAdmin = false;
+
+    // 2. If not found in User, check Admin collection
+    if (!account) {
+      const admin = await Admin.findOne({ email: identifier.toLowerCase() });
+      if (admin) {
+        const isMatch = await bcrypt.compare(password, admin.password);
+        if (!isMatch) {
+          if (isHtml) {
+            return res.render("user/login", { error: "Invalid email or password", title: "User Login" });
+          }
+          return res.status(401).json({ success: false, message: "Invalid email or password" });
+        }
+        account = admin;
+        role = "admin";
+        isAdmin = true;
+      }
+    }
+
+    if (!account) {
+      if (isHtml) {
         return res.render("user/login", { error: "Invalid email or password", title: "User Login" });
       }
       return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
 
-    if (!user.isActive) {
-      if (req.accepts("html") && !req.is("json")) {
-        return res.render("user/login", { error: "Account is deactivated", title: "User Login" });
+    // 3. If User account, verify active status and password
+    if (!isAdmin) {
+      if (!account.isActive) {
+        if (isHtml) {
+          return res.render("user/login", { error: "Account is deactivated", title: "User Login" });
+        }
+        return res.status(403).json({ success: false, message: "Account is deactivated" });
       }
-      return res.status(403).json({ success: false, message: "Account is deactivated" });
+
+      const isMatch = await account.comparePassword(password);
+      if (!isMatch) {
+        if (isHtml) {
+          return res.render("user/login", { error: "Invalid email or password", title: "User Login" });
+        }
+        return res.status(401).json({ success: false, message: "Invalid email or password" });
+      }
     }
 
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      if (req.accepts("html") && !req.is("json")) {
-        return res.render("user/login", { error: "Invalid email or password", title: "User Login" });
-      }
-      return res.status(401).json({ success: false, message: "Invalid email or password" });
-    }
-
-    // Generate JWT token
+    // 4. Generate JWT token
     const token = jwt.sign(
-      { id: user._id, role: user.role },
+      { id: account._id, role: role || (isAdmin ? "admin" : "student") },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    await user.updateLastLogin();
+    // 5. Set HTTP-only cookie
+    res.cookie("token", token, {
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000,
+      secure: process.env.NODE_ENV === "production",
+    });
 
-    if (req.session) {
-      req.session.user = {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        assignedSubjects: user.assignedSubjects || [],
-        assignedClasses: user.assignedClasses || [],
-      };
-      if (user.role === "teacher") {
-        req.session.teacher = req.session.user;
-      }
-      req.session.userToken = token;
+    // 6. Update last login
+    if (account.updateLastLogin) {
+      await account.updateLastLogin();
     }
 
-    if (req.accepts("html") && !req.is("json")) {
-      if (user.role === "teacher") {
+    // 7. Store in session for view templates backwards compatibility
+    if (req.session) {
+      if (role === "admin") {
+        req.session.admin = {
+          _id: account._id,
+          name: account.name,
+          email: account.email,
+          role: "admin",
+        };
+        req.session.adminToken = token;
+      } else {
+        req.session.user = {
+          _id: account._id,
+          name: account.name,
+          email: account.email,
+          role: account.role,
+          assignedSubjects: account.assignedSubjects || [],
+          assignedClasses: account.assignedClasses || [],
+        };
+        if (account.role === "teacher") {
+          req.session.teacher = req.session.user;
+          req.session.teacherToken = token;
+        }
+        req.session.userToken = token;
+      }
+    }
+
+    // 8. Role-based redirect for HTML/browser requests
+    if (isHtml) {
+      if (role === "admin") {
+        return res.redirect("/admin/dashboard");
+      }
+      if (role === "teacher") {
         return res.redirect("/teacher/dashboard");
       }
       return res.redirect("/user/dashboard");
     }
 
-    return res.json({
+    // 9. Standard JSON response for API / Postman consumers
+    return res.status(200).json({
       success: true,
       message: "Login successful",
       token,
       user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        assignedSubjects: user.assignedSubjects || [],
-        assignedClasses: user.assignedClasses || [],
+        _id: account._id,
+        name: account.name,
+        email: account.email,
+        role: role || account.role,
+        assignedSubjects: account.assignedSubjects || [],
+        assignedClasses: account.assignedClasses || [],
       },
     });
   } catch (err) {
-    console.error(err);
-    if (req.accepts("html") && !req.is("json")) {
-      return res.render("user/login", { error: "Something went wrong", title: "User Login" });
+    console.error("Login controller error:", err);
+    if (isHtml) {
+      return res.render("user/login", { error: "Something went wrong during login", title: "User Login" });
     }
     return res.status(500).json({ success: false, message: err.message });
   }

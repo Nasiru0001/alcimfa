@@ -104,7 +104,7 @@ export const loginAdmin = async (req, res) => {
       return res.status(400).json({ message: "Invalid email or password" });
 
     // Generate JWT token
-    const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ id: admin._id, role: "admin" }, process.env.JWT_SECRET, {
       expiresIn: "7d",
     });
 
@@ -116,10 +116,155 @@ export const loginAdmin = async (req, res) => {
         _id: admin._id,
         name: admin.name,
         email: admin.email,
+        role: "admin",
       },
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+// Login Staff (Admin & Teacher) - Supports both HTML browser forms and JSON API requests
+// @route POST /admin/login, POST /api/admin/login
+export const loginStaff = async (req, res) => {
+  const isJson = req.is("json") || (req.headers.accept && req.headers.accept.includes("application/json") && !req.headers.accept.includes("text/html"));
+  const isHtml = !isJson && (
+    (req.accepts && req.accepts("html")) ||
+    (req.headers["content-type"] && req.headers["content-type"].includes("application/x-www-form-urlencoded"))
+  );
+
+  const identifier = (req.body.email || req.body.username || "").trim();
+  const password = req.body.password;
+
+  const renderError = (message, status = 400) => {
+    if (isHtml) {
+      return res.status(status).render("admin/login", {
+        error: message,
+        title: "Staff Login",
+        email: identifier,
+      });
+    }
+    return res.status(status).json({ success: false, message });
+  };
+
+  if (!identifier || !password) {
+    return renderError("Email/Username and password are required", 400);
+  }
+
+  try {
+    let account = null;
+    let role = null;
+
+    // 1. Authenticate against Admin collection
+    const admin = await Admin.findOne({ email: identifier.toLowerCase() });
+    if (admin) {
+      const isMatch = await bcrypt.compare(password, admin.password);
+      if (isMatch) {
+        account = admin;
+        role = "admin";
+      }
+    }
+
+    // 2. If not found or didn't match Admin, authenticate against User collection (Teachers)
+    if (!account) {
+      const user = await User.findOne({
+        $or: [
+          { email: identifier.toLowerCase() },
+          { name: new RegExp(`^${identifier}$`, "i") }
+        ]
+      }).select("+password");
+
+      if (user) {
+        const isMatch = await user.comparePassword(password);
+        if (isMatch) {
+          // Explicit check: Only teachers can log in to Staff Portal
+          if (user.role !== "teacher") {
+            return renderError("Access denied. Staff portal only.", 403);
+          }
+          if (!user.isActive) {
+            return renderError("Account is deactivated. Please contact administration.", 403);
+          }
+          account = user;
+          role = "teacher";
+        }
+      }
+    }
+
+    // 3. Invalid credentials (neither Admin nor Teacher matched)
+    if (!account) {
+      return renderError("Invalid email/username or password", 401);
+    }
+
+    // 4. Issue JWT token
+    const token = jwt.sign(
+      { id: account._id, role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // 5. Store in HTTP-only cookie
+    res.cookie("token", token, {
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000,
+      secure: process.env.NODE_ENV === "production",
+    });
+
+    // 6. Synchronize session
+    if (req.session) {
+      if (role === "admin") {
+        req.session.admin = {
+          _id: account._id,
+          name: account.name,
+          email: account.email,
+          role: "admin",
+        };
+        req.session.adminToken = token;
+      } else if (role === "teacher") {
+        req.session.teacher = {
+          _id: account._id,
+          name: account.name,
+          email: account.email,
+          role: "teacher",
+          assignedClasses: account.assignedClasses || [],
+          assignedSubjects: account.assignedSubjects || [],
+        };
+        req.session.user = req.session.teacher;
+        req.session.teacherToken = token;
+        req.session.userToken = token;
+      }
+    }
+
+    if (account.updateLastLogin) {
+      await account.updateLastLogin();
+    }
+
+    // 7. Role redirection for HTML requests
+    if (isHtml) {
+      if (role === "admin") {
+        return res.redirect("/admin/dashboard");
+      }
+      if (role === "teacher") {
+        return res.redirect("/teacher/dashboard");
+      }
+    }
+
+    // 8. JSON response for API / Postman requests
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      token,
+      user: {
+        _id: account._id,
+        name: account.name,
+        email: account.email,
+        role,
+        assignedClasses: account.assignedClasses || [],
+        assignedSubjects: account.assignedSubjects || [],
+      },
+    });
+  } catch (err) {
+    console.error("Staff login controller error:", err);
+    return renderError("Login failed: " + err.message, 500);
   }
 };
 

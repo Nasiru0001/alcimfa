@@ -7,75 +7,30 @@ import Result from "../models/resultModel.js";
 import Settings from "../models/settingsModel.js";
 import User from "../models/userModel.js";
 import { getSettings, updateSessionTerm } from "../controllers/settingsController.js";
+import { loginStaff } from "../controllers/authController.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 const router = express.Router();
 
 // ==========================================
-// ADMIN LOGIN & LOGOUT (No Auth Required)
+// STAFF LOGIN & LOGOUT (Admin & Teacher)
 // ==========================================
 
-// Show login page
+// Show staff login page
 router.get("/login", redirectIfLoggedIn, (req, res) => {
   res.render("admin/login", { 
     error: null,
-    title: "Admin Login"
+    title: "Staff Login"
   });
 });
 
-// Process login
-router.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    
-    if (!email || !password) {
-      return res.render("admin/login", { 
-        error: "Email and password are required",
-        title: "Admin Login"
-      });
-    }
-    
-    const admin = await Admin.findOne({ email });
-    if (!admin) {
-      return res.render("admin/login", { 
-        error: "Invalid email or password",
-        title: "Admin Login"
-      });
-    }
-    
-    const isMatch = await bcrypt.compare(password, admin.password);
-    if (!isMatch) {
-      return res.render("admin/login", { 
-        error: "Invalid email or password",
-        title: "Admin Login"
-      });
-    }
-    
-    // Generate token
-    const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d"
-    });
-    
-    // Save to session
-    req.session.admin = {
-      _id: admin._id,
-      name: admin.name,
-      email: admin.email
-    };
-    req.session.adminToken = token;
-    
-    res.redirect("/admin/dashboard");
-  } catch (error) {
-    res.render("admin/login", { 
-      error: "Login failed: " + error.message,
-      title: "Admin Login"
-    });
-  }
-});
+// Process staff login (Admin & Teacher)
+router.post("/login", loginStaff);
 
 // Logout
 router.get("/logout", (req, res) => {
+  res.clearCookie("token");
   req.session.destroy((err) => {
     if (err) {
       console.error('Session destroy error:', err);
