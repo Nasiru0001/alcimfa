@@ -6,6 +6,135 @@
   <title><%= title %> - Admin Dashboard</title>
   <link rel="stylesheet" href="/css/style2.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    .teacher-assignment-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+      margin-top: 15px;
+    }
+    @media (min-width: 992px) {
+      .teacher-assignment-grid {
+        grid-template-columns: 360px 1fr;
+      }
+    }
+    .assignment-card {
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .assignment-card h3 {
+      margin-top: 0;
+      margin-bottom: 15px;
+      font-size: 16px;
+      color: #1e293b;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .form-group {
+      margin-bottom: 14px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #475569;
+      margin-bottom: 6px;
+    }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 14px;
+      color: #0f172a;
+      background: #ffffff;
+    }
+    .form-group input:focus, .form-group select:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+    }
+    .btn-assign {
+      background: #2563eb;
+      color: #ffffff;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+    .btn-assign:hover {
+      background: #1d4ed8;
+    }
+    .subject-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #e0f2fe;
+      color: #0369a1;
+      padding: 4px 10px;
+      border-radius: 14px;
+      font-size: 12px;
+      font-weight: 600;
+      margin: 3px 2px;
+    }
+    .subject-pill .btn-pill-remove {
+      background: transparent;
+      border: none;
+      color: #0369a1;
+      cursor: pointer;
+      padding: 0 2px;
+      font-size: 14px;
+      line-height: 1;
+      font-weight: bold;
+    }
+    .subject-pill .btn-pill-remove:hover {
+      color: #b91c1c;
+    }
+    .badge-empty {
+      color: #94a3b8;
+      font-style: italic;
+      font-size: 12.5px;
+    }
+    .badge-class {
+      background: #f1f5f9;
+      color: #475569;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-right: 4px;
+    }
+    .assignment-feedback {
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 12px;
+      display: none;
+    }
+    .assignment-feedback.success {
+      display: flex;
+      background: #dcfce7;
+      color: #15803d;
+      border: 1px solid #86efac;
+    }
+    .assignment-feedback.error {
+      display: flex;
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+  </style>
 </head>
 
 <body>
@@ -37,6 +166,12 @@
         </div>
 
         <div class="card">
+          <i class="fa fa-chalkboard-user"></i>
+          <h3>Total Teachers</h3>
+          <p class="stat-number"><%= typeof teachers !== 'undefined' ? teachers.length : 0 %></p>
+        </div>
+
+        <div class="card">
           <i class="fa fa-book"></i>
           <h3>Total Results</h3>
           <p class="stat-number"><%= stats.totalResults %></p>
@@ -46,6 +181,152 @@
           <a href="/admin/results/upload" class="none">
             <i class="fa-solid fa-upload"></i> Upload Result
           </a>
+        </div>
+      </section>
+
+      <!-- Manage Teachers & Subject Assignments Section -->
+      <section class="recent-activity" id="teacherSubjectManagement">
+        <h2><i class="fa fa-chalkboard-teacher"></i> Manage Teachers & Subject Assignments</h2>
+        
+        <div class="teacher-assignment-grid">
+          <!-- Subject Assignment Form -->
+          <div class="assignment-card">
+            <h3><i class="fa fa-plus-circle" style="color: #2563eb;"></i> Assign Subject to Teacher</h3>
+            <p style="font-size: 13px; color: #64748b; margin-top: -6px; margin-bottom: 15px;">
+              Designate subjects and class levels for registered teachers to submit scores.
+            </p>
+
+            <div id="assignmentFeedback" class="assignment-feedback"></div>
+
+            <form id="assignSubjectForm">
+              <div class="form-group">
+                <label for="teacherSelect">Select Teacher</label>
+                <select id="teacherSelect" required>
+                  <option value="" disabled selected>-- Choose a registered teacher --</option>
+                  <% if (typeof teachers !== 'undefined' && teachers.length > 0) { %>
+                    <% teachers.forEach(teacher => { %>
+                      <option value="<%= teacher._id %>" data-name="<%= teacher.name %>">
+                        <%= teacher.name %> (<%= teacher.email %>)
+                      </option>
+                    <% }); %>
+                  <% } else { %>
+                    <option value="" disabled>No registered teachers found</option>
+                  <% } %>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="subjectNameInput">Subject Name</label>
+                <input 
+                  type="text" 
+                  id="subjectNameInput" 
+                  placeholder="e.g. Mathematics" 
+                  list="suggestedSubjects"
+                  required
+                >
+                <datalist id="suggestedSubjects">
+                  <option value="Mathematics">
+                  <option value="English Language">
+                  <option value="Basic Science">
+                  <option value="Civic Education">
+                  <option value="Social Studies">
+                  <option value="Business Studies">
+                  <option value="Agricultural Science">
+                  <option value="Computer Studies">
+                  <option value="Physical & Health Education">
+                  <option value="Islamic Religious Studies">
+                  <option value="Christian Religious Studies">
+                  <option value="Biology">
+                  <option value="Chemistry">
+                  <option value="Physics">
+                </datalist>
+              </div>
+
+              <div class="form-group">
+                <label for="classLevelSelect">Class Level</label>
+                <select id="classLevelSelect" required>
+                  <option value="" disabled selected>-- Select class level --</option>
+                  <option value="JSS1">JSS1</option>
+                  <option value="JSS2">JSS2</option>
+                  <option value="JSS3">JSS3</option>
+                  <option value="SSS1">SSS1</option>
+                  <option value="SSS2">SSS2</option>
+                  <option value="SSS3">SSS3</option>
+                </select>
+              </div>
+
+              <button type="submit" class="btn-assign" id="assignSubjectBtn">
+                <i class="fa fa-check"></i> Assign Subject
+              </button>
+            </form>
+          </div>
+
+          <!-- Teachers List & Current Assignments Table -->
+          <div class="assignment-card" style="overflow-x: auto;">
+            <h3><i class="fa fa-list-check" style="color: #0369a1;"></i> Registered Teachers & Assigned Subjects</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Teacher Name</th>
+                  <th>Email</th>
+                  <th>Assigned Subjects</th>
+                  <th>Classes</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="teachersAssignmentTableBody">
+                <% if (typeof teachers !== 'undefined' && teachers.length > 0) { %>
+                  <% teachers.forEach(teacher => { %>
+                    <tr id="teacher-row-<%= teacher._id %>">
+                      <td><strong><%= teacher.name %></strong></td>
+                      <td><%= teacher.email %></td>
+                      <td>
+                        <% if (teacher.assignedSubjects && teacher.assignedSubjects.length > 0) { %>
+                          <% teacher.assignedSubjects.forEach(s => { %>
+                            <span class="subject-pill">
+                              <%= typeof s === 'string' ? s : s.subjectName + ' (' + s.classLevel + ')' %>
+                              <button 
+                                type="button" 
+                                class="btn-pill-remove" 
+                                title="Unassign subject"
+                                onclick="unassignSubject('<%= teacher._id %>', '<%= typeof s === 'string' ? s : s.subjectName %>', '<%= typeof s === 'string' ? '' : s.classLevel %>')"
+                              >&times;</button>
+                            </span>
+                          <% }); %>
+                        <% } else { %>
+                          <span class="badge-empty">No subjects assigned yet</span>
+                        <% } %>
+                      </td>
+                      <td>
+                        <% if (teacher.assignedClasses && teacher.assignedClasses.length > 0) { %>
+                          <% teacher.assignedClasses.forEach(cls => { %>
+                            <span class="badge-class"><%= cls %></span>
+                          <% }); %>
+                        <% } else { %>
+                          <span class="badge-empty">-</span>
+                        <% } %>
+                      </td>
+                      <td>
+                        <button 
+                          type="button" 
+                          style="background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer;"
+                          onclick="selectTeacherForAssignment('<%= teacher._id %>')"
+                        >
+                          <i class="fa fa-plus"></i> Assign
+                        </button>
+                      </td>
+                    </tr>
+                  <% }); %>
+                <% } else { %>
+                  <tr>
+                    <td colspan="5" style="text-align: center; color: #64748b; padding: 20px;">
+                      No teachers registered yet. Teachers can register via <a href="/teacher/signup" target="_blank">/teacher/signup</a>.
+                    </td>
+                  </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -80,9 +361,115 @@
     // Sidebar toggle for mobile
     const menuBtn = document.getElementById('menuBtn');
     const sidebar = document.getElementById('sidebar');
-    menuBtn.addEventListener('click', () => {
-      sidebar.classList.toggle('active');
-    });
+    if (menuBtn && sidebar) {
+      menuBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('active');
+      });
+    }
+
+    // Preselect teacher in assignment form
+    function selectTeacherForAssignment(teacherId) {
+      const select = document.getElementById('teacherSelect');
+      if (select) {
+        select.value = teacherId;
+        document.getElementById('subjectNameInput').focus();
+      }
+    }
+
+    // Handle Subject Assignment Form Submission
+    const assignForm = document.getElementById('assignSubjectForm');
+    const feedbackBox = document.getElementById('assignmentFeedback');
+    const assignBtn = document.getElementById('assignSubjectBtn');
+
+    if (assignForm) {
+      assignForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        feedbackBox.className = 'assignment-feedback';
+        feedbackBox.style.display = 'none';
+
+        const teacherId = document.getElementById('teacherSelect').value;
+        const subjectName = document.getElementById('subjectNameInput').value.trim();
+        const classLevel = document.getElementById('classLevelSelect').value;
+
+        if (!teacherId || !subjectName || !classLevel) {
+          feedbackBox.className = 'assignment-feedback error';
+          feedbackBox.innerText = 'Please select a teacher, enter a subject name, and select a class level.';
+          feedbackBox.style.display = 'flex';
+          return;
+        }
+
+        assignBtn.disabled = true;
+        assignBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Assigning...';
+
+        try {
+          const response = await fetch(`/api/admin/teachers/${teacherId}/assign-subjects`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({ subjectName, classLevel }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            feedbackBox.className = 'assignment-feedback success';
+            feedbackBox.innerHTML = `<i class="fa fa-check-circle"></i> Assigned <strong>${subjectName} (${classLevel})</strong> successfully!`;
+            feedbackBox.style.display = 'flex';
+
+            // Reset inputs
+            document.getElementById('subjectNameInput').value = '';
+            document.getElementById('classLevelSelect').value = '';
+
+            // Refresh page after short delay to reflect updated assignments
+            setTimeout(() => {
+              window.location.reload();
+            }, 800);
+          } else {
+            feedbackBox.className = 'assignment-feedback error';
+            feedbackBox.innerHTML = `<i class="fa fa-exclamation-circle"></i> ${data.message || 'Failed to assign subject.'}`;
+            feedbackBox.style.display = 'flex';
+          }
+        } catch (err) {
+          console.error('Assign subject error:', err);
+          feedbackBox.className = 'assignment-feedback error';
+          feedbackBox.innerText = 'Network error while assigning subject.';
+          feedbackBox.style.display = 'flex';
+        } finally {
+          assignBtn.disabled = false;
+          assignBtn.innerHTML = '<i class="fa fa-check"></i> Assign Subject';
+        }
+      });
+    }
+
+    // Handle Unassigning Subject
+    async function unassignSubject(teacherId, subjectName, classLevel) {
+      if (!confirm(`Are you sure you want to unassign "${subjectName} (${classLevel})" from this teacher?`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/admin/teachers/${teacherId}/assign-subjects`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({ subjectName, classLevel }),
+        });
+
+        const data = await response.json();
+        if (response.ok && data.success) {
+          window.location.reload();
+        } else {
+          alert(data.message || 'Failed to unassign subject.');
+        }
+      } catch (err) {
+        console.error('Unassign error:', err);
+        alert('Network error while unassigning subject.');
+      }
+    }
   </script>
 </body>
 </html>

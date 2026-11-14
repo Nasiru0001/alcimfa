@@ -20,7 +20,8 @@ const router = express.Router();
 // Show staff login page
 router.get("/login", redirectIfLoggedIn, (req, res) => {
   res.render("admin/login", { 
-    error: null,
+    error: req.query.error || null,
+    success: req.query.success || null,
     title: "Staff Login"
   });
 });
@@ -50,6 +51,7 @@ router.get("/dashboard", requireAdminAuth, async (req, res) => {
     const totalResults = await Result.countDocuments();
     
     const recentStudents = await Student.find().sort({ createdAt: -1 }).limit(5);
+    const teachers = await User.find({ role: "teacher" }).sort({ name: 1 });
     
     res.render("admin/dashboard", {
       title: "Admin Dashboard",
@@ -60,7 +62,8 @@ router.get("/dashboard", requireAdminAuth, async (req, res) => {
         totalUsers,
         totalResults
       },
-      recentStudents
+      recentStudents,
+      teachers
     });
   } catch (error) {
     res.render("error", { message: error.message });

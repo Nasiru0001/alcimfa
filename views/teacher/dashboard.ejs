@@ -8,6 +8,103 @@
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/css/teacher-style.css">
   <link href="https://fonts.cdnfonts.com/css/manrope" rel="stylesheet">
+  <style>
+    .assigned-subjects-section {
+      background: #ffffff;
+      padding: 24px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      margin-top: 25px;
+    }
+    .assigned-subjects-section h2 {
+      margin-top: 0;
+      margin-bottom: 16px;
+      font-size: 18px;
+      color: #1e293b;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .subject-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+      margin-top: 15px;
+    }
+    .subject-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+      background: #f8fafc;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .subject-card:hover {
+      border-color: #0284c7;
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.08);
+      transform: translateY(-2px);
+    }
+    .subject-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .subject-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 0;
+    }
+    .class-badge {
+      display: inline-block;
+      background: #e0f2fe;
+      color: #0369a1;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .btn-upload-scores {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: #0284c7;
+      color: #ffffff;
+      text-decoration: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      transition: background 0.2s;
+      margin-top: 10px;
+    }
+    .btn-upload-scores:hover {
+      background: #0369a1;
+    }
+    .empty-state-notice {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-left: 5px solid #f59e0b;
+      padding: 18px 20px;
+      border-radius: 8px;
+      margin: 15px 0;
+      color: #92400e;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .empty-state-notice p {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+  </style>
 </head>
 <body>
 
@@ -43,18 +140,78 @@
         </div>
       </div>
 
+      <% const subjectsList = (typeof assignedSubjects !== 'undefined' && Array.isArray(assignedSubjects)) ? assignedSubjects : ((typeof teacher !== 'undefined' && teacher && Array.isArray(teacher.assignedSubjects)) ? teacher.assignedSubjects : []); %>
+
       <section class="cards">
-        <div class="card"><i class="fa fa-users"></i> Assigned Classes: <%= typeof assignedClasses !== 'undefined' ? assignedClasses : 'N/A' %></div>
-        <div class="card"><i class="fa fa-book"></i> Subject: <%= typeof subject !== 'undefined' ? subject : 'N/A' %></div>
-        <div class="card"><i class="fa fa-user-graduate"></i> No. of Students: <%= typeof studentCount !== 'undefined' ? studentCount : 0 %></div>
-        <div class="card"><i class="fa fa-file-lines"></i> Total Results: <%= typeof totalResults !== 'undefined' ? totalResults : (typeof pendingResults !== 'undefined' ? pendingResults : 0) %></div>
-        <div class="card"><a href="/teacher/upload" class="none"><i class="fa-solid fa-upload"></i> Upload New Results</a></div>
+        <div class="card">
+          <i class="fa fa-users"></i>
+          <h3>Assigned Classes</h3>
+          <p class="stat-number" style="font-size: 18px; margin-top: 8px;"><%= typeof assignedClasses !== 'undefined' ? assignedClasses : 'None' %></p>
+        </div>
+        <div class="card">
+          <i class="fa fa-book-open"></i>
+          <h3>Assigned Subjects</h3>
+          <p class="stat-number"><%= subjectsList.length %></p>
+        </div>
+        <div class="card">
+          <i class="fa fa-user-graduate"></i>
+          <h3>No. of Students</h3>
+          <p class="stat-number"><%= typeof studentCount !== 'undefined' ? studentCount : 0 %></p>
+        </div>
+        <div class="card">
+          <i class="fa fa-file-lines"></i>
+          <h3>Total Results</h3>
+          <p class="stat-number"><%= typeof totalResults !== 'undefined' ? totalResults : 0 %></p>
+        </div>
+        <div class="card">
+          <a href="/teacher/upload" class="none">
+            <i class="fa-solid fa-upload"></i> Upload New Results
+          </a>
+        </div>
       </section>
 
-      <div class="cards">
-        <h2>My Classes</h2>
-        <div class="card"><%= typeof myClasses !== 'undefined' ? myClasses : 'e.g JSS1' %></div>
-      </div>
+      <!-- Assigned Subjects Section -->
+      <section class="assigned-subjects-section">
+        <h2>
+          <i class="fa fa-book" style="color: #0284c7;"></i>
+          My Assigned Subjects
+          <span style="font-size: 13px; font-weight: normal; color: #64748b; margin-left: auto;">
+            <%= subjectsList.length %> subject<%= subjectsList.length === 1 ? '' : 's' %> assigned
+          </span>
+        </h2>
+
+        <% if (subjectsList.length === 0) { %>
+          <!-- Empty State Notice -->
+          <div class="empty-state-notice">
+            <i class="fa-solid fa-triangle-exclamation fa-2x" style="color: #f59e0b; flex-shrink: 0;"></i>
+            <div>
+              <p><strong>No subjects assigned yet. Please contact the Administrator to assign your subjects before recording scores.</strong></p>
+            </div>
+          </div>
+        <% } else { %>
+          <!-- List of Assigned Subjects -->
+          <div class="subject-grid">
+            <% subjectsList.forEach(s => { %>
+              <% const subjName = typeof s === 'string' ? s : s.subjectName; %>
+              <% const clsLevel = typeof s === 'string' ? 'All Classes' : s.classLevel; %>
+              <div class="subject-card">
+                <div>
+                  <div class="subject-card-header">
+                    <h3 class="subject-title"><i class="fa fa-book-bookmark" style="color: #0284c7; margin-right: 6px;"></i><%= subjName %></h3>
+                    <span class="class-badge"><%= clsLevel %></span>
+                  </div>
+                  <p style="font-size: 13px; color: #64748b; margin: 0;">
+                    Class Level: <strong><%= clsLevel %></strong>
+                  </p>
+                </div>
+                <a href="/teacher/upload" class="btn-upload-scores">
+                  <i class="fa fa-upload"></i> Record Scores
+                </a>
+              </div>
+            <% }); %>
+          </div>
+        <% } %>
+      </section>
     </main>
   </div>
 

@@ -457,34 +457,18 @@ export const activateUser = async (req, res) => {
 };
 
 // @desc    Assign subjects and class levels to a teacher
-// @route   PATCH /api/admin/teachers/:id/assign-subjects
+// @route   PATCH /api/admin/teachers/:id/assign-subjects, PUT /api/admin/teachers/:id/assign-subjects
 // @access  Private (Admin only)
 export const assignTeacherSubjects = async (req, res) => {
   try {
     const { id } = req.params;
-    const { assignedSubjects } = req.body;
+    let { assignedSubjects, subjectName, classLevel } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
         message: "Invalid teacher ID format",
       });
-    }
-
-    if (!assignedSubjects || !Array.isArray(assignedSubjects)) {
-      return res.status(400).json({
-        success: false,
-        message: "assignedSubjects must be an array of { subjectName, classLevel } objects",
-      });
-    }
-
-    for (const item of assignedSubjects) {
-      if (!item || typeof item !== "object" || !item.subjectName || !item.classLevel) {
-        return res.status(400).json({
-          success: false,
-          message: "Each assigned subject must have both 'subjectName' and 'classLevel'",
-        });
-      }
     }
 
     const teacher = await User.findById(id);
@@ -502,6 +486,43 @@ export const assignTeacherSubjects = async (req, res) => {
       });
     }
 
+    // Support single subject assignment via subjectName & classLevel
+    if (!assignedSubjects && subjectName && classLevel) {
+      const trimmedSubj = subjectName.trim();
+      const trimmedClass = classLevel.trim();
+
+      const current = teacher.assignedSubjects || [];
+      const alreadyExists = current.some(
+        (s) => s.subjectName.toLowerCase() === trimmedSubj.toLowerCase() &&
+               s.classLevel.toLowerCase() === trimmedClass.toLowerCase()
+      );
+
+      if (alreadyExists) {
+        return res.status(400).json({
+          success: false,
+          message: `Subject "${trimmedSubj}" for class "${trimmedClass}" is already assigned to ${teacher.name}.`,
+        });
+      }
+
+      assignedSubjects = [...current, { subjectName: trimmedSubj, classLevel: trimmedClass }];
+    }
+
+    if (!assignedSubjects || !Array.isArray(assignedSubjects)) {
+      return res.status(400).json({
+        success: false,
+        message: "assignedSubjects must be an array of { subjectName, classLevel } objects or provide subjectName and classLevel",
+      });
+    }
+
+    for (const item of assignedSubjects) {
+      if (!item || typeof item !== "object" || !item.subjectName || !item.classLevel) {
+        return res.status(400).json({
+          success: false,
+          message: "Each assigned subject must have both 'subjectName' and 'classLevel'",
+        });
+      }
+    }
+
     const formatted = assignedSubjects.map((s) => ({
       subjectName: s.subjectName.trim(),
       classLevel: s.classLevel.trim(),
@@ -511,9 +532,7 @@ export const assignTeacherSubjects = async (req, res) => {
 
     // Automatically sync assignedClasses with unique class levels
     const uniqueClasses = [...new Set(formatted.map((s) => s.classLevel))];
-    if (uniqueClasses.length > 0) {
-      teacher.assignedClasses = uniqueClasses;
-    }
+    teacher.assignedClasses = uniqueClasses;
 
     await teacher.save();
 
@@ -535,6 +554,55 @@ export const assignTeacherSubjects = async (req, res) => {
       success: false,
       message: error.message || "Failed to assign subjects to teacher",
     });
+  }
+};
+
+// @desc    Unassign a subject from a teacher
+// @route   DELETE /api/admin/teachers/:id/assign-subjects
+// @access  Private (Admin only)
+export const unassignTeacherSubject = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { subjectName, classLevel } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid teacher ID format" });
+    }
+
+    const teacher = await User.findById(id);
+    if (!teacher || teacher.role !== "teacher") {
+      return res.status(404).json({ success: false, message: "Teacher not found" });
+    }
+
+    if (!subjectName || !classLevel) {
+      return res.status(400).json({ success: false, message: "Both subjectName and classLevel are required to unassign" });
+    }
+
+    const trimmedSubj = subjectName.trim().toLowerCase();
+    const trimmedClass = classLevel.trim().toLowerCase();
+
+    teacher.assignedSubjects = (teacher.assignedSubjects || []).filter(
+      (s) => !(s.subjectName.toLowerCase() === trimmedSubj && s.classLevel.toLowerCase() === trimmedClass)
+    );
+
+    teacher.assignedClasses = [...new Set((teacher.assignedSubjects || []).map((s) => s.classLevel))];
+
+    await teacher.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Subject unassigned successfully",
+      data: {
+        _id: teacher._id,
+        name: teacher.name,
+        email: teacher.email,
+        assignedSubjects: teacher.assignedSubjects,
+        assignedClasses: teacher.assignedClasses,
+      },
+    });
+  } catch (error) {
+    console.error("Error in unassignTeacherSubject:", error);
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 

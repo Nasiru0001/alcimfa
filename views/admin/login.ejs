@@ -108,6 +108,13 @@
             </div>
         <% } %>
 
+        <% if (typeof success !== 'undefined' && success) { %>
+            <div class="alert alert-success" style="background:#dcfce7; color:#15803d; border-left: 4px solid #22c55e; padding:10px 14px; border-radius:6px; margin-bottom:16px; font-size:14px; display:flex; align-items:center; gap:8px;">
+                <i class="fa fa-check-circle"></i>
+                <span><%= success %></span>
+            </div>
+        <% } %>
+
         <!-- Staff Role Switcher Tabs -->
         <div class="staff-tabs">
             <button type="button" class="staff-tab active" id="adminTab" onclick="switchStaffRole('admin')">
@@ -157,6 +164,14 @@
 
             <button type="submit" id="submitBtn">Sign In to Staff Portal</button>
 
+            <!-- Teacher Registration Link (Displayed prominently on Teacher Tab) -->
+            <div id="teacherSignupNotice" style="display: none; text-align: center; margin-top: 14px; padding: 10px; background: #f0f9ff; border: 1px dashed #7dd3fc; border-radius: 6px; font-size: 13.5px; color: #0369a1;">
+                New teacher joining Al-cimfa? <br>
+                <a href="/teacher/signup" style="color: #0284c7; font-weight: 700; text-decoration: underline;">
+                    <i class="fa fa-user-plus"></i> Register as a Teacher
+                </a>
+            </div>
+
             <div class="student-portal-link">
                 Not a staff member? <a href="/login"><i class="fa fa-user-graduate"></i> Go to Student / Parent Portal</a>
             </div>
@@ -174,6 +189,7 @@
             const identifierLabel = document.getElementById('identifierLabel');
             const identifierInput = document.getElementById('identifierInput');
             const identifierIcon = document.getElementById('identifierIcon');
+            const teacherSignupNotice = document.getElementById('teacherSignupNotice');
 
             if (role === 'teacher') {
                 adminTab.classList.remove('active');
@@ -189,6 +205,7 @@
                 identifierLabel.innerText = 'Staff Username or Email';
                 identifierInput.placeholder = 'teacher@alcimfa.edu or username';
                 identifierIcon.className = 'fa fa-chalkboard-user';
+                if (teacherSignupNotice) teacherSignupNotice.style.display = 'block';
             } else {
                 teacherTab.classList.remove('active', 'teacher-active');
                 adminTab.classList.add('active');
@@ -203,7 +220,14 @@
                 identifierLabel.innerText = 'Admin Email';
                 identifierInput.placeholder = 'admin@alcimfa.edu';
                 identifierIcon.className = 'fa fa-user';
+                if (teacherSignupNotice) teacherSignupNotice.style.display = 'none';
             }
+        }
+
+        // Auto-switch to Teacher tab if query param tab=teacher is present
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('tab') === 'teacher') {
+            switchStaffRole('teacher');
         }
     </script>
 </body>

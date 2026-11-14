@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
 import Student from "../models/studentModel.js";
 import Result from "../models/resultModel.js";
+import Admin from "../models/adminModel.js";
 import { requireTeacherAuth, redirectIfLoggedIn } from "../middleware/renderMiddleware.js";
 import { findStudentByIdOrReg } from "../controllers/studentController.js";
 import { loginStaff } from "../controllers/authController.js";
@@ -30,6 +31,91 @@ router.get("/login", redirectIfLoggedIn, (req, res) => {
 
 // Process teacher login (supports legacy POST /teacher/login via unified staff login)
 router.post("/login", loginStaff);
+
+// Teacher registration page
+router.get("/signup", redirectIfLoggedIn, (req, res) => {
+  res.render("teacher/signup", {
+    title: "Teacher Sign Up",
+    error: req.query.error || null,
+    success: req.query.success || null,
+  });
+});
+
+// Process teacher registration
+router.post("/signup", async (req, res) => {
+  const isJson = req.is("json") || (req.headers.accept && req.headers.accept.includes("application/json") && !req.headers.accept.includes("text/html"));
+  const { name, email, password } = req.body;
+
+  const renderError = (message, status = 400) => {
+    if (!isJson) {
+      return res.status(status).render("teacher/signup", {
+        title: "Teacher Sign Up",
+        error: message,
+        name: name || "",
+        email: email || "",
+      });
+    }
+    return res.status(status).json({ success: false, message });
+  };
+
+  try {
+    if (!name || !email || !password) {
+      return renderError("All fields (name, email, password) are required.", 400);
+    }
+
+    if (password.length < 6) {
+      return renderError("Password must be at least 6 characters long.", 400);
+    }
+
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedName = name.trim();
+
+    // Check if email already exists in User collection
+    const existingUser = await User.findOne({ email: trimmedEmail });
+    if (existingUser) {
+      return renderError("An account with this email already exists.", 400);
+    }
+
+    // Check if email already exists in Admin collection
+    const existingAdmin = await Admin.findOne({ email: trimmedEmail });
+    if (existingAdmin) {
+      return renderError("An account with this email already exists.", 400);
+    }
+
+    // Create new Teacher account - explicitly empty assignedSubjects and assignedClasses
+    const newTeacher = await User.create({
+      name: trimmedName,
+      email: trimmedEmail,
+      password: password,
+      role: "teacher",
+      assignedSubjects: [],
+      assignedClasses: [],
+      isActive: true,
+    });
+
+    const successMsg = "Teacher account registered successfully! Please sign in.";
+
+    if (isJson) {
+      return res.status(201).json({
+        success: true,
+        message: successMsg,
+        user: {
+          _id: newTeacher._id,
+          name: newTeacher.name,
+          email: newTeacher.email,
+          role: newTeacher.role,
+          assignedSubjects: newTeacher.assignedSubjects,
+          assignedClasses: newTeacher.assignedClasses,
+        },
+      });
+    }
+
+    return res.redirect("/admin/login?tab=teacher&success=" + encodeURIComponent(successMsg));
+  } catch (error) {
+    console.error("Teacher registration error:", error);
+    return renderError("Registration failed: " + error.message, 500);
+  }
+});
 
 // Teacher logout
 router.get("/logout", (req, res) => {
@@ -91,19 +177,21 @@ router.get("/dashboard", requireTeacherAuth, async (req, res) => {
       });
     }
 
-    const formattedSubjects = teacher.assignedSubjects && teacher.assignedSubjects.length > 0
-      ? teacher.assignedSubjects.map(s => typeof s === "string" ? s : `${s.subjectName} (${s.classLevel})`).join(", ")
-      : "All Subjects";
+    const assignedSubjects = teacher.assignedSubjects || [];
+    const formattedSubjects = assignedSubjects.length > 0
+      ? assignedSubjects.map(s => typeof s === "string" ? s : `${s.subjectName} (${s.classLevel})`).join(", ")
+      : "None assigned yet";
 
     res.render("teacher/dashboard", {
       title: "Teacher Dashboard",
       path: "/teacher/dashboard",
       teacherName: teacher.name,
-      assignedClasses: assignedClasses.join(", ") || "All Classes",
+      assignedClasses: assignedClasses.join(", ") || "None",
+      assignedSubjects,
       subject: formattedSubjects,
       studentCount,
       totalResults,
-      myClasses: assignedClasses.join(", ") || "All Classes",
+      myClasses: assignedClasses.join(", ") || "None",
       teacher,
     });
   } catch (error) {
