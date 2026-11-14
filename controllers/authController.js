@@ -20,15 +20,15 @@ export const registerUser = async (req, res) => {
     const { name, email, password, role, studentId, phoneNumber } = req.body;
 
     if (!name || !email || !password || !role) {
-      return res.status(400).json({ 
-        message: "Name, email, password, and role are required" 
+      return res.status(400).json({
+        message: "Name, email, password, and role are required"
       });
     }
 
     // Validate password length
     if (password.length < 6) {
-      return res.status(400).json({ 
-        message: "Password must be at least 6 characters" 
+      return res.status(400).json({
+        message: "Password must be at least 6 characters"
       });
     }
 
@@ -40,8 +40,8 @@ export const registerUser = async (req, res) => {
 
     // Validate student ID for students and parents
     if ((role === "student" || role === "parent") && !studentId) {
-      return res.status(400).json({ 
-        message: `Student ID is required for ${role}s` 
+      return res.status(400).json({
+        message: `Student ID is required for ${role}s`
       });
     }
 
@@ -104,139 +104,284 @@ export const loginAdmin = async (req, res) => {
       return res.status(400).json({ message: "Invalid email or password" });
 
     // Generate JWT token
-    const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
+      const token = jwt.sign({ id: admin._id, role: "admin" }, process.env.JWT_SECRET, {
+        expiresIn: "7d",
+      });
 
-    res.json({
-      message: "Login successful",
-      token,
-      expiresIn: "7 days",
-      admin: {
+      res.json({
+        message: "Login successful",
+        token,
+        expiresIn: "7 days",
+        admin: {
+          _id: admin._id,
+          name: admin.name,
+          email: admin.email,
+          role: "admin",
+        },
+      });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  };
+
+  // Login Staff (Admin & Teacher) - Supports both HTML browser forms and JSON API requests
+  // @route POST /admin/login, POST /api/admin/login
+  export const loginStaff = async (req, res) => {
+    const isJson = req.is("json") || (req.headers.accept && req.headers.accept.includes("application/json") && !req.headers.accept.includes("text/html"));
+    const isHtml = !isJson && (
+      (req.accepts && req.accepts("html")) ||
+      (req.headers["content-type"] && req.headers["content-type"].includes("application/x-www-form-urlencoded"))
+    );
+
+    const identifier = (req.body.email || req.body.username || "").trim();
+    const password = req.body.password;
+
+    const renderError = (message, status = 400) => {
+      if (isHtml) {
+        return res.status(status).render("admin/login", {
+          error: message,
+          title: "Staff Login",
+          email: identifier,
+        });
+      }
+      return res.status(status).json({ success: false, message });
+    };
+
+    if (!identifier || !password) {
+      return renderError("Email/Username and password are required", 400);
+    }
+
+    try {
+      let account = null;
+      let role = null;
+
+      // 1. Authenticate against Admin collection
+      const admin = await Admin.findOne({ email: identifier.toLowerCase() });
+      if (admin) {
+        const isMatch = await bcrypt.compare(password, admin.password);
+        if (isMatch) {
+          account = admin;
+          role = "admin";
+        }
+      }
+
+      // 2. If not found or didn't match Admin, authenticate against User collection (Teachers)
+      if (!account) {
+        const user = await User.findOne({
+          $or: [
+            { email: identifier.toLowerCase() },
+            { name: new RegExp(`^${identifier}$`, "i") }
+          ]
+        }).select("+password");
+
+        if (user) {
+          const isMatch = await user.comparePassword(password);
+          if (isMatch) {
+            // Explicit check: Only teachers can log in to Staff Portal
+            if (user.role !== "teacher") {
+              return renderError("Access denied. Staff portal only.", 403);
+            }
+            if (!user.isActive) {
+              return renderError("Account is deactivated. Please contact administration.", 403);
+            }
+            account = user;
+            role = "teacher";
+          }
+        }
+      }
+
+      // 3. Invalid credentials (neither Admin nor Teacher matched)
+      if (!account) {
+        return renderError("Invalid email/username or password", 401);
+      }
+
+      // 4. Issue JWT token
+      const token = jwt.sign(
+        { id: account._id, role },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      // 5. Store in HTTP-only cookie
+      res.cookie("token", token, {
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000,
+        secure: process.env.NODE_ENV === "production",
+      });
+
+      // 6. Synchronize session
+      if (req.session) {
+        if (role === "admin") {
+          req.session.admin = {
+            _id: account._id,
+            name: account.name,
+            email: account.email,
+            role: "admin",
+          };
+          req.session.adminToken = token;
+        } else if (role === "teacher") {
+          req.session.teacher = {
+            _id: account._id,
+            name: account.name,
+            email: account.email,
+            role: "teacher",
+            assignedClasses: account.assignedClasses || [],
+            assignedSubjects: account.assignedSubjects || [],
+          };
+          req.session.user = req.session.teacher;
+          req.session.teacherToken = token;
+          req.session.userToken = token;
+        }
+      }
+
+      if (account.updateLastLogin) {
+        await account.updateLastLogin();
+      }
+
+      // 7. Role redirection for HTML requests
+      if (isHtml) {
+        if (role === "admin") {
+          return res.redirect("/admin/dashboard");
+        }
+        if (role === "teacher") {
+          return res.redirect("/teacher/dashboard");
+        }
+      }
+
+      // 8. JSON response for API / Postman requests
+      return res.status(200).json({
+        success: true,
+        message: "Login successful",
+        token,
+        user: {
+          _id: account._id,
+          name: account.name,
+          email: account.email,
+          role,
+          assignedClasses: account.assignedClasses || [],
+          assignedSubjects: account.assignedSubjects || [],
+        },
+      });
+    } catch (err) {
+      console.error("Staff login controller error:", err);
+      return renderError("Login failed: " + err.message, 500);
+    }
+  };
+
+  // Logout Admin (API)
+  export const logoutAdmin = async (req, res) => {
+    try {
+      res.json({
+        message: "Logout successful",
+        instructions: "Please delete the token from your client storage"
+      });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  };
+
+  // Get Current Admin Profile (API)
+  export const getAdminProfile = async (req, res) => {
+    try {
+      const admin = await Admin.findById(req.admin._id).select("-password");
+
+      if (!admin) {
+        return res.status(404).json({ message: "Admin not found" });
+      }
+
+      res.json({
         _id: admin._id,
         name: admin.name,
         email: admin.email,
-      },
-    });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
-
-// Logout Admin (API)
-export const logoutAdmin = async (req, res) => {
-  try {
-    res.json({
-      message: "Logout successful",
-      instructions: "Please delete the token from your client storage"
-    });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
-
-// Get Current Admin Profile (API)
-export const getAdminProfile = async (req, res) => {
-  try {
-    const admin = await Admin.findById(req.admin._id).select("-password");
-    
-    if (!admin) {
-      return res.status(404).json({ message: "Admin not found" });
-    }
-
-    res.json({
-      _id: admin._id,
-      name: admin.name,
-      email: admin.email,
-      createdAt: admin.createdAt,
-      updatedAt: admin.updatedAt,
-    });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
-
-// Update Admin Profile (API)
-export const updateAdminProfile = async (req, res) => {
-  try {
-    const admin = await Admin.findById(req.admin._id);
-
-    if (!admin) {
-      return res.status(404).json({ message: "Admin not found" });
-    }
-
-    // Update fields
-    admin.name = req.body.name || admin.name;
-    
-    // Check if email is being changed
-    if (req.body.email && req.body.email !== admin.email) {
-      const emailExists = await Admin.findOne({ email: req.body.email });
-      if (emailExists) {
-        return res.status(400).json({ message: "Email already in use" });
-      }
-      admin.email = req.body.email;
-    }
-
-    // Update password if provided
-    if (req.body.password) {
-      if (req.body.password.length < 6) {
-        return res.status(400).json({ message: "Password must be at least 6 characters" });
-      }
-      admin.password = req.body.password;
-    }
-
-    const updatedAdmin = await admin.save();
-
-    res.json({
-      message: "Profile updated successfully",
-      admin: {
-        _id: updatedAdmin._id,
-        name: updatedAdmin.name,
-        email: updatedAdmin.email,
-      },
-    });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
-
-// Change Password (API)
-export const changePassword = async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ 
-        message: "Please provide current and new password" 
+        createdAt: admin.createdAt,
+        updatedAt: admin.updatedAt,
       });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
     }
+  };
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({ 
-        message: "New password must be at least 6 characters" 
+  // Update Admin Profile (API)
+  export const updateAdminProfile = async (req, res) => {
+    try {
+      const admin = await Admin.findById(req.admin._id);
+
+      if (!admin) {
+        return res.status(404).json({ message: "Admin not found" });
+      }
+
+      // Update fields
+      admin.name = req.body.name || admin.name;
+
+      // Check if email is being changed
+      if (req.body.email && req.body.email !== admin.email) {
+        const emailExists = await Admin.findOne({ email: req.body.email });
+        if (emailExists) {
+          return res.status(400).json({ message: "Email already in use" });
+        }
+        admin.email = req.body.email;
+      }
+
+      // Update password if provided
+      if (req.body.password) {
+        if (req.body.password.length < 6) {
+          return res.status(400).json({ message: "Password must be at least 6 characters" });
+        }
+        admin.password = req.body.password;
+      }
+
+      const updatedAdmin = await admin.save();
+
+      res.json({
+        message: "Profile updated successfully",
+        admin: {
+          _id: updatedAdmin._id,
+          name: updatedAdmin.name,
+          email: updatedAdmin.email,
+        },
       });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
     }
+  };
 
-    const admin = await Admin.findById(req.admin._id);
+  // Change Password (API)
+  export const changePassword = async (req, res) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
 
-    if (!admin) {
-      return res.status(404).json({ message: "Admin not found" });
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({
+          message: "Please provide current and new password"
+        });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({
+          message: "New password must be at least 6 characters"
+        });
+      }
+
+      const admin = await Admin.findById(req.admin._id);
+
+      if (!admin) {
+        return res.status(404).json({ message: "Admin not found" });
+      }
+
+      // Check current password
+      const isMatch = await bcrypt.compare(currentPassword, admin.password);
+      if (!isMatch) {
+        return res.status(400).json({ message: "Current password is incorrect" });
+      }
+
+      // Update password
+      admin.password = newPassword;
+      await admin.save();
+
+      res.json({
+        message: "Password changed successfully. Please login again.",
+      });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
     }
-
-    // Check current password
-    const isMatch = await bcrypt.compare(currentPassword, admin.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Current password is incorrect" });
-    }
-
-    // Update password
-    admin.password = newPassword;
-    await admin.save();
-
-    res.json({
-      message: "Password changed successfully. Please login again.",
-    });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+  };

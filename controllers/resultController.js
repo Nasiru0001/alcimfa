@@ -37,6 +37,11 @@ const computeGPA = (average) => {
   return "0.00";
 };
 
+// Helper to normalize class levels (e.g. "JSS 1", "JSS1", "jss-1" -> "jss1")
+const normalizeClass = (c) => (c || "").toString().toLowerCase().replace(/[\s\-_]+/g, "");
+// Helper to normalize subject names
+const normalizeSubject = (s) => (s || "").toString().toLowerCase().trim().replace(/\s+/g, " ");
+
 // @desc Upload student result / CA and Exam scores
 // @route POST /api/results or POST /api/scores
 export const uploadResult = async (req, res) => {
@@ -50,16 +55,16 @@ export const uploadResult = async (req, res) => {
     const identifier = studentId || regNumber;
 
     if (!identifier || !term || !session) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Student identifier (studentId or regNumber), term, and session are required" 
+      return res.status(400).json({
+        success: false,
+        message: "Student identifier (studentId or regNumber), term, and session are required"
       });
     }
 
     if (!subjects || !Array.isArray(subjects) || subjects.length === 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "At least one subject score object is required in the 'subjects' array" 
+      return res.status(400).json({
+        success: false,
+        message: "At least one subject score object is required in the 'subjects' array"
       });
     }
 
@@ -70,23 +75,35 @@ export const uploadResult = async (req, res) => {
     }
 
     // 3. Teacher Scope Authorization: Enforce assigned classes and subjects
-    if (req.user && req.user.role === "teacher") {
-      if (req.user.assignedClasses && req.user.assignedClasses.length > 0) {
-        if (!req.user.assignedClasses.includes(student.classLevel)) {
+    const isAdmin = Boolean(req.admin || req.userType === "admin" || (req.user && req.user.role === "admin"));
+    const isTeacher = req.user && req.user.role === "teacher";
+
+    if (isTeacher && !isAdmin) {
+      const studentClass = normalizeClass(student.classLevel);
+      const teacherAssignments = req.user.assignedSubjects || [];
+
+      for (const s of subjects) {
+        const subName = normalizeSubject(s.name || s.subjectName);
+
+        const isAuthorized = teacherAssignments.some((item) => {
+          const assignedSub = normalizeSubject(item.subjectName || (typeof item === "string" ? item : ""));
+          const assignedClass = normalizeClass(item.classLevel);
+
+          if (item.classLevel) {
+            return assignedSub === subName && assignedClass === studentClass;
+          }
+          return (
+            assignedSub === subName &&
+            (!req.user.assignedClasses?.length ||
+              req.user.assignedClasses.map(normalizeClass).includes(studentClass))
+          );
+        });
+
+        if (!isAuthorized) {
           return res.status(403).json({
             success: false,
-            message: `Access denied. You are only authorized to upload scores for your assigned classes: [${req.user.assignedClasses.join(", ")}]. Student is in ${student.classLevel}.`
+            message: "Unauthorized: You are not assigned to record scores for this subject and class.",
           });
-        }
-      }
-      if (req.user.assignedSubjects && req.user.assignedSubjects.length > 0) {
-        for (const s of subjects) {
-          if (!req.user.assignedSubjects.includes(s.name)) {
-            return res.status(403).json({
-              success: false,
-              message: `Access denied. You are not authorized to grade subject '${s.name}'. Your assigned subjects: [${req.user.assignedSubjects.join(", ")}].`
-            });
-          }
         }
       }
     }
@@ -117,9 +134,9 @@ export const uploadResult = async (req, res) => {
       if (s.ca !== undefined) {
         const caVal = Number(s.ca);
         if (isNaN(caVal) || caVal < 0 || caVal > 40) {
-          return res.status(400).json({ 
-            success: false, 
-            message: `Continuous Assessment (CA) score for ${s.name} must be between 0 and 40. Received: ${s.ca}` 
+          return res.status(400).json({
+            success: false,
+            message: `Continuous Assessment (CA) score for ${s.name} must be between 0 and 40. Received: ${s.ca}`
           });
         }
         ca1Score = caVal;
@@ -128,15 +145,15 @@ export const uploadResult = async (req, res) => {
         const ca1Val = Number(s.ca1 ?? 0);
         const ca2Val = Number(s.ca2 ?? 0);
         if (isNaN(ca1Val) || ca1Val < 0 || ca1Val > 20) {
-          return res.status(400).json({ 
-            success: false, 
-            message: `CA1 score for ${s.name} must be between 0 and 20. Received: ${s.ca1}` 
+          return res.status(400).json({
+            success: false,
+            message: `CA1 score for ${s.name} must be between 0 and 20. Received: ${s.ca1}`
           });
         }
         if (isNaN(ca2Val) || ca2Val < 0 || ca2Val > 20) {
-          return res.status(400).json({ 
-            success: false, 
-            message: `CA2 score for ${s.name} must be between 0 and 20. Received: ${s.ca2}` 
+          return res.status(400).json({
+            success: false,
+            message: `CA2 score for ${s.name} must be between 0 and 20. Received: ${s.ca2}`
           });
         }
         if (ca1Val + ca2Val > 40) {
@@ -152,17 +169,17 @@ export const uploadResult = async (req, res) => {
       // Exam score validation (0 to 70 max)
       const examVal = Number(s.exam ?? 0);
       if (isNaN(examVal) || examVal < 0 || examVal > 70) {
-        return res.status(400).json({ 
-          success: false, 
-          message: `Exam score for ${s.name} must be between 0 and 70. Received: ${s.exam}` 
+        return res.status(400).json({
+          success: false,
+          message: `Exam score for ${s.name} must be between 0 and 70. Received: ${s.exam}`
         });
       }
 
       const subjectTotal = ca1Score + ca2Score + examVal;
       if (subjectTotal > 100) {
-        return res.status(400).json({ 
-          success: false, 
-          message: `Total score for ${s.name} cannot exceed 100. Received: ${subjectTotal}` 
+        return res.status(400).json({
+          success: false,
+          message: `Total score for ${s.name} cannot exceed 100. Received: ${subjectTotal}`
         });
       }
 
@@ -207,9 +224,9 @@ export const uploadResult = async (req, res) => {
 
   } catch (error) {
     console.error("Error in uploadResult:", error);
-    return res.status(500).json({ 
-      success: false, 
-      message: error.message || "Failed to upload result" 
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to upload result"
     });
   }
 };
@@ -231,23 +248,35 @@ export const updateResult = async (req, res) => {
     const student = result.student;
 
     // 2. Teacher Scope Authorization: Enforce assigned classes and subjects
-    if (req.user && req.user.role === "teacher") {
-      if (req.user.assignedClasses && req.user.assignedClasses.length > 0 && student) {
-        if (!req.user.assignedClasses.includes(student.classLevel)) {
+    const isAdmin = Boolean(req.admin || req.userType === "admin" || (req.user && req.user.role === "admin"));
+    const isTeacher = req.user && req.user.role === "teacher";
+
+    if (isTeacher && !isAdmin && Array.isArray(subjects) && subjects.length > 0) {
+      const studentClass = normalizeClass(student?.classLevel);
+      const teacherAssignments = req.user.assignedSubjects || [];
+
+      for (const s of subjects) {
+        const subName = normalizeSubject(s.name || s.subjectName);
+
+        const isAuthorized = teacherAssignments.some((item) => {
+          const assignedSub = normalizeSubject(item.subjectName || (typeof item === "string" ? item : ""));
+          const assignedClass = normalizeClass(item.classLevel);
+
+          if (item.classLevel) {
+            return assignedSub === subName && assignedClass === studentClass;
+          }
+          return (
+            assignedSub === subName &&
+            (!req.user.assignedClasses?.length ||
+              req.user.assignedClasses.map(normalizeClass).includes(studentClass))
+          );
+        });
+
+        if (!isAuthorized) {
           return res.status(403).json({
             success: false,
-            message: `Access denied. You are only authorized to modify scores for: [${req.user.assignedClasses.join(", ")}]. Student is in ${student.classLevel}.`
+            message: "Unauthorized: You are not assigned to record scores for this subject and class.",
           });
-        }
-      }
-      if (req.user.assignedSubjects && req.user.assignedSubjects.length > 0 && Array.isArray(subjects)) {
-        for (const s of subjects) {
-          if (!req.user.assignedSubjects.includes(s.name)) {
-            return res.status(403).json({
-              success: false,
-              message: `Access denied. You are not authorized to grade subject '${s.name}'. Your assigned subjects: [${req.user.assignedSubjects.join(", ")}].`
-            });
-          }
         }
       }
     }
@@ -268,9 +297,9 @@ export const updateResult = async (req, res) => {
         if (s.ca !== undefined) {
           const caVal = Number(s.ca);
           if (isNaN(caVal) || caVal < 0 || caVal > 40) {
-            return res.status(400).json({ 
-              success: false, 
-              message: `Continuous Assessment (CA) score for ${s.name} must be between 0 and 40. Received: ${s.ca}` 
+            return res.status(400).json({
+              success: false,
+              message: `Continuous Assessment (CA) score for ${s.name} must be between 0 and 40. Received: ${s.ca}`
             });
           }
           ca1Score = caVal;
@@ -279,15 +308,15 @@ export const updateResult = async (req, res) => {
           const ca1Val = Number(s.ca1 ?? 0);
           const ca2Val = Number(s.ca2 ?? 0);
           if (isNaN(ca1Val) || ca1Val < 0 || ca1Val > 20) {
-            return res.status(400).json({ 
-              success: false, 
-              message: `CA1 score for ${s.name} must be between 0 and 20. Received: ${s.ca1}` 
+            return res.status(400).json({
+              success: false,
+              message: `CA1 score for ${s.name} must be between 0 and 20. Received: ${s.ca1}`
             });
           }
           if (isNaN(ca2Val) || ca2Val < 0 || ca2Val > 20) {
-            return res.status(400).json({ 
-              success: false, 
-              message: `CA2 score for ${s.name} must be between 0 and 20. Received: ${s.ca2}` 
+            return res.status(400).json({
+              success: false,
+              message: `CA2 score for ${s.name} must be between 0 and 20. Received: ${s.ca2}`
             });
           }
           if (ca1Val + ca2Val > 40) {
@@ -302,17 +331,17 @@ export const updateResult = async (req, res) => {
 
         const examVal = Number(s.exam ?? 0);
         if (isNaN(examVal) || examVal < 0 || examVal > 70) {
-          return res.status(400).json({ 
-            success: false, 
-            message: `Exam score for ${s.name} must be between 0 and 70. Received: ${s.exam}` 
+          return res.status(400).json({
+            success: false,
+            message: `Exam score for ${s.name} must be between 0 and 70. Received: ${s.exam}`
           });
         }
 
         const subjectTotal = ca1Score + ca2Score + examVal;
         if (subjectTotal > 100) {
-          return res.status(400).json({ 
-            success: false, 
-            message: `Total score for ${s.name} cannot exceed 100. Received: ${subjectTotal}` 
+          return res.status(400).json({
+            success: false,
+            message: `Total score for ${s.name} cannot exceed 100. Received: ${subjectTotal}`
           });
         }
 
@@ -357,9 +386,9 @@ export const updateResult = async (req, res) => {
 
   } catch (error) {
     console.error("Error in updateResult:", error);
-    return res.status(500).json({ 
-      success: false, 
-      message: error.message || "Failed to update scores" 
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to update scores"
     });
   }
 };
@@ -493,32 +522,32 @@ export const viewAllResults = async (req, res) => {
 
     // Transform data to match your template structure
     const formattedResults = validResults.map(result => ({
-  student: {
-    _id: result.student._id,
-    name: result.student.name,
-    classLevel: result.student.classLevel,
-    profilePhoto: result.student.profilePhoto // ✅ ADD THIS
-  },
-  term: result.term,
-  session: result.session,
-  totalScore: result.totalScore,
-  average: result.average,
-  gpa: result.gpa,
-  resultStatus: result.resultStatus,
-  subjects: result.subjects
-}));
+      student: {
+        _id: result.student._id,
+        name: result.student.name,
+        classLevel: result.student.classLevel,
+        profilePhoto: result.student.profilePhoto // ✅ ADD THIS
+      },
+      term: result.term,
+      session: result.session,
+      totalScore: result.totalScore,
+      average: result.average,
+      gpa: result.gpa,
+      resultStatus: result.resultStatus,
+      subjects: result.subjects
+    }));
     console.log('📦 Formatted results:', formattedResults.length);
 
-    return res.render('admin/view-results', { 
+    return res.render('admin/view-results', {
       title: 'View Results',
       admin: req.admin || null,
       adminToken: req.session?.adminToken || null,
-      results: formattedResults 
+      results: formattedResults
     });
 
   } catch (error) {
     console.error('❌ View All Results Error:', error);
-    return res.render('admin/view-results', { 
+    return res.render('admin/view-results', {
       title: 'View Results',
       admin: null,
       adminToken: null,

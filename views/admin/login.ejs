@@ -1,43 +1,211 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Login - School Management</title>
+    <title><%= typeof title !== 'undefined' ? title : 'Staff Login - School Management' %></title>
     <link rel="stylesheet" href="/css/style2.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.cdnfonts.com/css/manrope" rel="stylesheet">
+    <style>
+        .staff-tabs {
+            display: flex;
+            background: #eef2f6;
+            border-radius: 8px;
+            padding: 4px;
+            margin-bottom: 22px;
+            gap: 6px;
+        }
+        .staff-tab {
+            flex: 1;
+            padding: 10px 14px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            font-weight: 700;
+            font-size: 14px;
+            color: #4a5568;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .staff-tab:hover {
+            background: rgba(255, 255, 255, 0.6);
+            color: #1a202c;
+        }
+        .staff-tab.active {
+            background: #ffffff;
+            color: #b91c1c;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+        .staff-tab.teacher-active.active {
+            color: #0369a1;
+        }
+        .portal-badge {
+            display: inline-block;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: #fee2e2;
+            color: #991b1b;
+            margin-bottom: 10px;
+        }
+        .portal-badge.teacher {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+        .portal-heading {
+            text-align: center;
+            margin-bottom: 6px;
+            font-size: 22px;
+            font-weight: 800;
+            color: #b91c1c;
+            transition: color 0.25s ease;
+        }
+        .portal-subtext {
+            text-align: center;
+            font-size: 13px;
+            color: #64748b;
+            margin-bottom: 20px;
+        }
+        .student-portal-link {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 14px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 13px;
+            color: #64748b;
+        }
+        .student-portal-link a {
+            color: #2563eb;
+            font-weight: 700;
+            text-decoration: none;
+        }
+        .student-portal-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
+
 <body>
     <div class="bg"></div>
     <div class="form-container">
-        <img src="/img/logo-removebg-preview.png" width="600px" alt="School Logo">
+        <div style="text-align: center;">
+            <img src="/img/logo-removebg-preview.png" style="max-width: 220px; height: auto; margin-bottom: 10px;" alt="School Logo">
+        </div>
 
-        <% if (error) { %>
-            <div class="alert alert-error">
+        <% if (typeof error !== 'undefined' && error) { %>
+            <div class="alert alert-error" style="background:#fee2e2; color:#991b1b; padding:10px 14px; border-radius:6px; margin-bottom:16px; font-size:14px; display:flex; align-items:center; gap:8px;">
                 <i class="fa fa-exclamation-circle"></i>
-                <%= error %>
+                <span><%= error %></span>
             </div>
         <% } %>
 
-        <!-- ✅ FIXED: Direct form submission (no JavaScript) -->
-        <form action="/admin/login" method="POST">
-            <h1 style="text-align: center; color: red;">Admin Login</h1> <br>
+        <!-- Staff Role Switcher Tabs -->
+        <div class="staff-tabs">
+            <button type="button" class="staff-tab active" id="adminTab" onclick="switchStaffRole('admin')">
+                <i class="fa fa-shield-halved"></i> Administrator
+            </button>
+            <button type="button" class="staff-tab" id="teacherTab" onclick="switchStaffRole('teacher')">
+                <i class="fa fa-chalkboard-user"></i> Teacher
+            </button>
+        </div>
+
+        <!-- Staff Login Form (Direct Submission to POST /admin/login) -->
+        <form action="/admin/login" method="POST" id="staffLoginForm">
+            <input type="hidden" name="roleHint" id="roleHint" value="admin">
+
+            <div style="text-align: center;">
+                <span class="portal-badge" id="portalBadge">Admin Portal</span>
+                <h1 class="portal-heading" id="portalTitle">Administrator Login</h1>
+                <p class="portal-subtext" id="portalSubtitle">Sign in with school administrator credentials</p>
+            </div>
 
             <div class="input-container">
-                <label for="email">Email</label> <br>
-                <i class="fa fa-user"></i>
-                <input type="email" id="email" name="email" placeholder="Email" required>
+                <label for="identifierInput" id="identifierLabel">Admin Email</label> <br>
+                <i class="fa fa-user" id="identifierIcon"></i>
+                <input 
+                    type="text" 
+                    id="identifierInput" 
+                    name="email" 
+                    placeholder="admin@alcimfa.edu" 
+                    value="<%= typeof email !== 'undefined' ? email : '' %>"
+                    required 
+                    autocomplete="username"
+                >
             </div>
 
             <div class="input-container">
                 <label for="password">Password</label> <br>
                 <i class="fa fa-lock"></i>
-                <input type="password" id="password" name="password" placeholder="Password" required>
+                <input 
+                    type="password" 
+                    id="password" 
+                    name="password" 
+                    placeholder="Enter your password" 
+                    required 
+                    autocomplete="current-password"
+                >
             </div>
 
-            <button type="submit">Login</button>
+            <button type="submit" id="submitBtn">Sign In to Staff Portal</button>
+
+            <div class="student-portal-link">
+                Not a staff member? <a href="/login"><i class="fa fa-user-graduate"></i> Go to Student / Parent Portal</a>
+            </div>
         </form>
     </div>
+
+    <script>
+        function switchStaffRole(role) {
+            const adminTab = document.getElementById('adminTab');
+            const teacherTab = document.getElementById('teacherTab');
+            const roleHint = document.getElementById('roleHint');
+            const portalBadge = document.getElementById('portalBadge');
+            const portalTitle = document.getElementById('portalTitle');
+            const portalSubtitle = document.getElementById('portalSubtitle');
+            const identifierLabel = document.getElementById('identifierLabel');
+            const identifierInput = document.getElementById('identifierInput');
+            const identifierIcon = document.getElementById('identifierIcon');
+
+            if (role === 'teacher') {
+                adminTab.classList.remove('active');
+                teacherTab.classList.add('active', 'teacher-active');
+                roleHint.value = 'teacher';
+
+                portalBadge.className = 'portal-badge teacher';
+                portalBadge.innerText = 'Teacher Portal';
+                portalTitle.innerText = 'Teacher Login';
+                portalTitle.style.color = '#0369a1';
+                portalSubtitle.innerText = 'Sign in with your staff email or username';
+
+                identifierLabel.innerText = 'Staff Username or Email';
+                identifierInput.placeholder = 'teacher@alcimfa.edu or username';
+                identifierIcon.className = 'fa fa-chalkboard-user';
+            } else {
+                teacherTab.classList.remove('active', 'teacher-active');
+                adminTab.classList.add('active');
+                roleHint.value = 'admin';
+
+                portalBadge.className = 'portal-badge';
+                portalBadge.innerText = 'Admin Portal';
+                portalTitle.innerText = 'Administrator Login';
+                portalTitle.style.color = '#b91c1c';
+                portalSubtitle.innerText = 'Sign in with school administrator credentials';
+
+                identifierLabel.innerText = 'Admin Email';
+                identifierInput.placeholder = 'admin@alcimfa.edu';
+                identifierIcon.className = 'fa fa-user';
+            }
+        }
+    </script>
 </body>
+
 </html>

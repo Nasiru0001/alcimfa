@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= typeof title !== 'undefined' ? title : 'View Student Results' %></title>
+  <link href="https://fonts.cdnfonts.com/css/manrope" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/css/teacher-style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar" id="sidebar">
+            <img src="/img/logo.png" width="150px" class="logo" alt="students">
+    
+            <nav>
+              <ul>
+                <a href="/teacher/dashboard"><li class="<%= path === '/teacher/dashboard' || path === '/dashboard' ? 'active' : '' %>"><i class="fa fa-home"></i> Home</li></a>
+                <a href="/teacher/students"><li class="<%= path === '/teacher/students' || path === '/students' ? 'active' : '' %>"><i class="fa fa-users"></i> Students</li></a>
+                <a href="/teacher/upload"><li class="<%= path === '/teacher/upload' || path === '/upload' ? 'active' : '' %>"><i class="fa-solid fa-upload"></i> Upload Result</li></a>
+                <a href="/teacher/review"><li class="<%= path === '/teacher/review' || path === '/review' ? 'active' : '' %>"><i class="fa-solid fa-eye"></i> View Result</li></a>
+                <a href="/teacher/settings"><li class="<%= path === '/teacher/settings' || path === '/settings' ? 'active' : '' %>"><i class="fa-solid fa-cog"></i> Settings</li></a>
+                <a href="/teacher/logout"><li><i class="fa-solid fa-right-from-bracket"></i> Logout</li></a>
+              </ul>
+            </nav>
+        </aside>
+    
+    <main class="main-content">
+        <header> 
+          <h1>View Results</h1><i class="fa-solid fa-eye"></i>
+          <button id="menu-btn" class="menu-btn">
+            <i class="fa fa-bars"></i>
+          </button>
+        </header>
+
+        <div class="cards">
+          <form method="GET" action="/teacher/review" class="filters card" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; width: 100%;">
+            <div class="filter-box" style="flex: 1; min-width: 160px;">
+                <label for="filter-class" style="display: block; font-weight: bold; margin-bottom: 5px;">Class:</label>
+                <select id="filter-class" name="class" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ccc;">
+                  <option value="all">All Assigned Classes</option>
+                  <% if (locals.assignedClassesList && assignedClassesList.length > 0) { %>
+                    <% assignedClassesList.forEach(c => { %>
+                      <option value="<%= c %>" <%= selectedClass === c ? 'selected' : '' %>><%= c %></option>
+                    <% }) %>
+                  <% } else { %>
+                    <option value="JSS1" <%= selectedClass === 'JSS1' ? 'selected' : '' %>>JSS1</option>
+                    <option value="JSS2" <%= selectedClass === 'JSS2' ? 'selected' : '' %>>JSS2</option>
+                    <option value="JSS3" <%= selectedClass === 'JSS3' ? 'selected' : '' %>>JSS3</option>
+                  <% } %>
+                </select>
+            </div>
+    
+            <div class="filter-box" style="flex: 1; min-width: 160px;">
+                <label for="filter-term" style="display: block; font-weight: bold; margin-bottom: 5px;">Term:</label>
+                <select id="filter-term" name="term" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ccc;">
+                  <option value="all">All Terms</option>
+                  <option value="First Term" <%= selectedTerm === 'First Term' ? 'selected' : '' %>>First Term</option>
+                  <option value="Second Term" <%= selectedTerm === 'Second Term' ? 'selected' : '' %>>Second Term</option>
+                  <option value="Third Term" <%= selectedTerm === 'Third Term' ? 'selected' : '' %>>Third Term</option>
+                </select>
+            </div>
+
+            <div style="flex: 1; min-width: 160px;">
+                <button type="submit" class="btn" style="background: #0066cc; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                  <i class="fa-solid fa-filter"></i> Apply Filter
+                </button>
+            </div>
+          </form>
+        </div>
+
+        <section class="results-table card" style="width: 100%; margin-top: 20px;">
+          <table style="width: 100%; text-align: left; border-collapse: collapse;">
+              <thead>
+              <tr style="background: rgba(0,0,0,0.05);">
+                  <th style="padding: 10px;">Student Name</th>
+                  <th style="padding: 10px;">Admission No.</th>
+                  <th style="padding: 10px;">Class</th>
+                  <th style="padding: 10px;">Term</th>
+                  <th style="padding: 10px;">Session</th>
+                  <th style="padding: 10px;">Total</th>
+                  <th style="padding: 10px;">Average</th>
+                  <th style="padding: 10px;">Status</th>
+                  <th style="padding: 10px;">Report Card</th>
+              </tr>
+              </thead>
+              <tbody id="results-body">
+              <% if (locals.results && results.length > 0) { %>
+                <% results.forEach(res => { %>
+                  <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px; font-weight: bold;"><%= res.student ? res.student.name : 'Unknown' %></td>
+                    <td style="padding: 10px;"><%= res.student ? res.student.regNumber : '-' %></td>
+                    <td style="padding: 10px;"><%= res.student ? res.student.classLevel : '-' %></td>
+                    <td style="padding: 10px;"><%= res.term %></td>
+                    <td style="padding: 10px;"><%= res.session %></td>
+                    <td style="padding: 10px;"><%= res.totalScore %></td>
+                    <td style="padding: 10px;"><%= res.average %>%</td>
+                    <td style="padding: 10px; font-weight: bold; color: <%= res.resultStatus === 'Pass' ? 'green' : 'red' %>;"><%= res.resultStatus %></td>
+                    <td style="padding: 10px;">
+                      <% if (res.student) { %>
+                        <a href="/api/results/card/<%= res.student._id %>?term=<%= encodeURIComponent(res.term) %>&session=<%= encodeURIComponent(res.session) %>" target="_blank" style="color: #0066cc; text-decoration: underline;">
+                          <i class="fa fa-print"></i> View Card
+                        </a>
+                      <% } %>
+                    </td>
+                  </tr>
+                <% }) %>
+              <% } else { %>
+                <tr>
+                  <td colspan="9" style="padding: 20px; text-align: center; color: #777;">No results found matching this filter.</td>
+                </tr>
+              <% } %>
+              </tbody>
+          </table>
+        </section>
+    </main>
+    </div>
+
+    <script>
+        const menuBtn = document.getElementById('menu-btn');
+        const sidebar = document.getElementById('sidebar');
+        if (menuBtn && sidebar) {
+          menuBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('active');
+          });
+        }
+    </script>
+</body>
+</html>

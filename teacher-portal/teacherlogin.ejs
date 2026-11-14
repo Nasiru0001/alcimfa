@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title || 'Teacher Login' %></title>
+    <link rel="stylesheet" href="/style.css">
+    <link href="https://fonts.cdnfonts.com/css/manrope" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body>
+    <div class="bg"></div>
+    <div class="form-container">
+        <img src="/img/logo-removebg-preview.png" width="600px" alt="students">
+
+        <form action="/login" method="POST">
+            <h1 style="text-align: center; color: red;">Admin Login</h1> <br>
+            
+            <% if (locals.error) { %>
+              <p style="color: red; text-align: center;"><%= error %></p>
+            <% } %>
+
+            <div class="input-container">
+                <label for="username">Username</label> <br>
+                <i class="fa fa-user"></i>
+                <input type="text" id="username" name="username" placeholder="Username" required>
+            </div>
+            <div class="input-container">
+                <label for="password">Password</label> <br>
+                <i class="fa fa-lock"></i>
+                <input type="password" id="password" name="password" placeholder="Password" required>
+            </div>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+</body>
+</html>

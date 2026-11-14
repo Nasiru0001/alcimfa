@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title || 'View Student Results' %></title>
+  <link href="https://fonts.cdnfonts.com/css/manrope" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar" id="sidebar">
+            <img src="/img/logo.png" width="150px" class="logo" alt="students">
+    
+            <nav>
+              <ul>
+                <a href="/dashboard"><li class="<%= path === '/dashboard' ? 'active' : '' %>"><i class="fa fa-home"></i> Home</li></a>
+                <a href="/students"><li class="<%= path === '/students' ? 'active' : '' %>"><i class="fa fa-users"></i> Students</li></a>
+                <a href="/upload"><li class="<%= path === '/upload' ? 'active' : '' %>"><i class="fa-solid fa-upload"></i> Upload Result</li></a>
+                <a href="/review"><li class="<%= path === '/review' ? 'active' : '' %>"><i class="fa-solid fa-eye"></i> View Result</li></a>
+                <a href="/settings"><li class="<%= path === '/settings' ? 'active' : '' %>"><i class="fa fa-cog"></i> Settings</li></a>
+                <a href="/logout"><li><i class="fa-solid fa-right-from-bracket"></i> Logout</li></a>
+              </ul>
+            </nav>
+        </aside>
+    
+    <main class="main-content">
+        <header> 
+          <h1>View Results</h1><i class="fa-solid fa-eye"></i>
+          <button id="menu-btn" class="menu-btn">
+            <i class="fa fa-bars"></i>
+          </button>
+        </header>
+
+        <div class="cards">
+          <section class="filters card">
+            <div class="filter-box">
+                <label for="filter-class">Class:</label>
+                <select id="filter-class">
+                  <option value="all">All Classes</option>
+                  <option>JSS1</option>
+                  <option>JSS2</option>
+                  <option>JSS3</option>
+                  <option>SS1</option>
+                  <option>SS2</option>
+                  <option>SS3</option>
+                </select>
+            </div>
+    
+            <div class="filter-box">
+                <label for="filter-term">Term / Session:</label>
+                <select id="filter-term">
+                  <option value="all">All Terms</option>
+                  <option>1st Term</option>
+                  <option>2nd Term</option>
+                  <option>3rd Term</option>
+                </select>
+            </div>
+    
+            <button id="filter-btn" class="btn"><i class="fa-solid fa-filter"></i> Filter</button>
+          </section>
+        </div>
+
+        <section class="results-table">
+          <table>
+              <thead>
+              <tr>
+                  <th>Student Name</th>
+                  <th>Class</th>
+                  <th>Term</th>
+                  <th>Subject</th>
+                  <th>Score</th>
+              </tr>
+              </thead>
+              <tbody id="results-body">
+              <% if (locals.results && results.length > 0) { %>
+                <% results.forEach(res => { %>
+                  <tr>
+                    <td><%= res.studentName %></td>
+                    <td><%= res.class %></td>
+                    <td><%= res.term %></td>
+                    <td><%= res.subject %></td>
+                    <td><%= res.score %></td>
+                  </tr>
+                <% }) %>
+              <% } %>
+              </tbody>
+          </table>
+        </section>
+    </main>
+    </div>
+
+    <script>
+        const menuBtn = document.getElementById('menu-btn');
+        const sidebar = document.getElementById('sidebar');
+        menuBtn.addEventListener('click', () => {
+          sidebar.classList.toggle('active');
+        });
+    </script>
+</body>
+</html>

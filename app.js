@@ -2,6 +2,8 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import morgan from "morgan";
+import cookieParser from "cookie-parser";
+import jwt from "jsonwebtoken";
 import path from "path";
 import { fileURLToPath } from "url";
 import session from "express-session";
@@ -17,7 +19,10 @@ import userRoutes from "./routes/userRoutes.js";
 // Import VIEW route
 import adminViewRoutes from "./routes/adminViewRoutes.js";
 import userViewRoutes from "./routes/userViewRoutes.js";
+import teacherViewRoutes from "./routes/teacherViewRoutes.js";
 import connectDB from "./config/db.js";
+import { loginUser } from "./controllers/userController.js";
+import { redirectIfLoggedIn } from "./middleware/renderMiddleware.js";
 
 dotenv.config();
 
@@ -25,9 +30,10 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Middleware (Body parsers before CORS and routes)
+// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 app.use(cors({ origin: true, credentials: true }));
 app.use(morgan("dev"));
 
@@ -47,6 +53,7 @@ app.use(session({
 app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
   res.locals.admin = req.session.admin || null;
+  res.locals.teacher = req.session.teacher || (req.session.user && req.session.user.role === 'teacher' ? req.session.user : null);
   next();
 });
 
@@ -68,6 +75,33 @@ app.use("/api/scores", resultRoutes);
 // VIEW Routes
 app.use("/admin", adminViewRoutes);
 app.use("/user", userViewRoutes);
+app.use("/teacher", teacherViewRoutes);
+
+// Direct navigation shortcuts & login handling
+app.post("/login", loginUser);
+app.get("/login", redirectIfLoggedIn, (req, res) => {
+  res.render("user/login", { 
+    error: req.query.error || null, 
+    success: req.query.success || null, 
+    title: "User Login" 
+  });
+});
+app.get("/teacher", (req, res) => res.redirect("/teacher/dashboard"));
+app.get("/dashboard", (req, res) => {
+  if (req.cookies?.token) {
+    try {
+      const decoded = jwt.verify(req.cookies.token, process.env.JWT_SECRET);
+      if (decoded.role === "admin") return res.redirect("/admin/dashboard");
+      if (decoded.role === "teacher") return res.redirect("/teacher/dashboard");
+      return res.redirect("/user/dashboard");
+    } catch (e) {}
+  }
+  if (req.session?.admin) return res.redirect("/admin/dashboard");
+  if (req.session?.teacher || req.session?.user?.role === "teacher") return res.redirect("/teacher/dashboard");
+  if (req.session?.user) return res.redirect("/user/dashboard");
+  res.redirect("/login");
+});
+app.get("/adminlogin", (req, res) => res.redirect("/admin/login"));
 
 // Root routes (public pages)
 app.get("/", (req, res) => {

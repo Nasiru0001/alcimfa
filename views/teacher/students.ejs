@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= typeof title !== 'undefined' ? title : 'Student Management' %></title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/css/teacher-style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link href="https://fonts.cdnfonts.com/css/manrope" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard">
+      <aside class="sidebar" id="sidebar">
+        <img src="/img/logo.png" width="150px" class="logo" alt="students">
+  
+        <nav>
+          <ul>
+            <a href="/teacher/dashboard"><li class="<%= path === '/teacher/dashboard' ? 'active' : '' %>"><i class="fa fa-home"></i> Home</li></a>
+            <a href="/teacher/students"><li class="<%= path === '/teacher/students' ? 'active' : '' %>"><i class="fa fa-users"></i> Students</li></a>
+            <a href="/teacher/upload"><li class="<%= path === '/teacher/upload' ? 'active' : '' %>"><i class="fa-solid fa-upload"></i> Upload Result</li></a>
+            <a href="/teacher/review"><li class="<%= path === '/teacher/review' ? 'active' : '' %>"><i class="fa-solid fa-eye"></i> View Result</li></a>
+            <a href="/teacher/settings"><li class="<%= path === '/teacher/settings' ? 'active' : '' %>"><i class="fa fa-cog"></i> Settings</li></a>
+            <a href="/teacher/logout"><li><i class="fa-solid fa-right-from-bracket"></i> Logout</li></a>
+          </ul>
+        </nav>
+      </aside>
+  
+      <!-- header -->
+      <main class="main-content">
+        <header> 
+          <h1>Students</h1><i class="fa fa-users"></i>
+          <button id="menu-btn" class="menu-btn">
+            <i class="fa fa-bars"></i>
+          </button>
+        </header>
+
+        <!-- STUDENT MANAGEMENT -->
+        <section class="cards">
+          <div class="card student-card" style="width: 100%;">
+            <section id="students-section" class="visible">
+              <h2><i class="fa-solid fa-user-graduate"></i> My Class Students (<%= typeof students !== 'undefined' ? students.length : 0 %>)</h2>
+              
+              <div style="margin: 15px 0;">
+                <input type="text" id="student-search" placeholder="Search by name or reg number..." style="padding: 10px; width: 100%; max-width: 400px; border-radius: 6px; border: 1px solid #ccc;" onkeyup="filterStudents()">
+              </div>
+      
+              <table id="student-table" style="width: 100%; text-align: left; border-collapse: collapse;">
+                <thead>
+                  <tr style="background: rgba(0,0,0,0.05);">
+                    <th style="padding: 10px;">Reg Number</th>
+                    <th style="padding: 10px;">Name</th>
+                    <th style="padding: 10px;">Class</th>
+                    <th style="padding: 10px;">Gender</th>
+                    <th style="padding: 10px;">Session</th>
+                    <th style="padding: 10px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="student-tbody">
+                  <% if (locals.students && students.length > 0) { %>
+                    <% students.forEach(student => { %>
+                      <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px;"><%= student.regNumber || student.id || '-' %></td>
+                        <td style="padding: 10px; font-weight: bold;"><%= student.name %></td>
+                        <td style="padding: 10px;"><%= student.class || student.classLevel %></td>
+                        <td style="padding: 10px;"><%= student.gender || '-' %></td>
+                        <td style="padding: 10px;"><%= student.session || '-' %></td>
+                        <td style="padding: 10px;">
+                          <a href="/teacher/upload?studentId=<%= student.regNumber %>" style="color: #0066cc; text-decoration: underline;">Upload Score</a>
+                        </td>
+                      </tr>
+                    <% }) %>
+                  <% } else { %>
+                    <tr>
+                      <td colspan="6" style="padding: 20px; text-align: center; color: #777;">
+                        No students found for your assigned classes.
+                      </td>
+                    </tr>
+                  <% } %>
+                </tbody>
+              </table>
+            </section>
+          </div>
+        </section>
+
+        <!-- SUBJECT MANAGEMENT -->
+        <div class="card student-card" style="width: 100%; margin-top: 20px;">
+          <section id="subjects-section">
+            <h2><i class="fa-solid fa-clipboard-list"></i> Assigned Subjects</h2>
+      
+            <table id="subject-table" style="width: 100%; text-align: left; border-collapse: collapse; margin-top: 15px;">
+              <thead>
+                <tr style="background: rgba(0,0,0,0.05);">
+                  <th style="padding: 10px;">Subject Name</th>
+                  <th style="padding: 10px;">Classes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% if (locals.subjects && subjects.length > 0) { %>
+                  <% subjects.forEach(subject => { %>
+                    <tr style="border-bottom: 1px solid #eee;">
+                      <td style="padding: 10px; font-weight: bold;"><%= typeof subject === 'string' ? subject : subject.name %></td>
+                      <td style="padding: 10px;"><%= typeof assignedClasses !== 'undefined' ? assignedClasses : 'All' %></td>
+                    </tr>
+                  <% }) %>
+                <% } else { %>
+                  <tr>
+                    <td colspan="2" style="padding: 15px; color: #777;">No subjects currently assigned.</td>
+                  </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </section>
+        </div>
+      </main>
+    </div>
+    
+    <script>
+        const menuBtn = document.getElementById('menu-btn');
+        const sidebar = document.getElementById('sidebar');
+        if (menuBtn && sidebar) {
+          menuBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('active');
+          });
+        }
+
+        function filterStudents() {
+          const input = document.getElementById('student-search').value.toLowerCase();
+          const rows = document.querySelectorAll('#student-tbody tr');
+          rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            row.style.display = text.includes(input) ? '' : 'none';
+          });
+        }
+    </script>
+</body>
+</html>

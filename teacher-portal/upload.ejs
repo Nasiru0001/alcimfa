@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title || 'Upload Student Results' %></title>
+  <link rel="stylesheet" href="/style.css">
+  <link href="https://fonts.cdnfonts.com/css/manrope" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+        <img src="/img/logo.png" width="150px" class="logo" alt="students">
+  
+        <nav>
+          <ul>
+            <a href="/dashboard"><li class="<%= path === '/dashboard' ? 'active' : '' %>"><i class="fa fa-home"></i> Home</li></a>
+            <a href="/students"><li class="<%= path === '/students' ? 'active' : '' %>"><i class="fa fa-users"></i> Students</li></a>
+            <a href="/upload"><li class="<%= path === '/upload' ? 'active' : '' %>"><i class="fa-solid fa-upload"></i> Upload Result</li></a>
+            <a href="/review"><li class="<%= path === '/review' ? 'active' : '' %>"><i class="fa-solid fa-eye"></i> View Result</li></a>
+            <a href="/settings"><li class="<%= path === '/settings' ? 'active' : '' %>"><i class="fa fa-cog"></i> Settings</li></a>
+            <a href="/logout"><li><i class="fa-solid fa-right-from-bracket"></i> Logout</li></a>
+          </ul>
+        </nav>
+      </aside>
+  
+    <main class="main-content">
+        <header> 
+          <h1>Upload Results</h1><i class="fa-solid fa-upload"></i> 
+          <button id="menu-btn" class="menu-btn">
+            <i class="fa fa-bars"></i>
+          </button>
+        </header>
+
+    <section class="upload-container">
+
+      <!-- MANUAL UPLOAD -->
+      <div class="upload-box">
+        <h2 style="color: black;"><i class="fa-solid fa-pen"></i> Manual Entry</h2>
+        <form id="manual-form" action="/upload/manual" method="POST">
+          <div class="form-row">
+            <select id="class" name="class" required>
+              <option value="">Select Class</option>
+              <option>JSS1</option>
+              <option>JSS2</option>
+              <option>JSS3</option>
+              <option>SS1</option>
+              <option>SS2</option>
+              <option>SS3</option>
+            </select>
+
+            <select id="term" name="term" required>
+              <option value="">Select Term</option>
+              <option>1st Term</option>
+              <option>2nd Term</option>
+              <option>3rd Term</option>
+            </select>
+
+            <div style="display: flex; align-items: center; gap: 5px;">
+              <input type="radio" name="assessmentType" id="test" value="Test" required>
+              <label for="test">Test</label>
+              <input type="radio" name="assessmentType" id="exam" value="Examination">
+              <label for="exam">Examination</label>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <input type="text" id="student-name" name="studentName" placeholder="Student Name/Class" required>
+            <input type="text" id="subject" name="subject" placeholder="Subject" required>
+            <input type="number" id="score" name="score" placeholder="Score" min="0" max="100" required>
+          </div>
+
+          <button type="submit" class="btn"><i class="fa-solid fa-plus"></i> Add Result</button>
+        </form>
+
+        <table id="results-table">
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Class</th>
+              <th>Subject</th>
+              <th>Test</th>
+              <th>Exam</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (locals.uploadedResults && uploadedResults.length > 0) { %>
+              <% uploadedResults.forEach(res => { %>
+                <tr>
+                  <td><%= res.student %></td>
+                  <td><%= res.class %></td>
+                  <td><%= res.subject %></td>
+                  <td><%= res.testScore %></td>
+                  <td><%= res.examScore %></td>
+                  <td>...</td>
+                </tr>
+              <% }) %>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- CSV UPLOAD -->
+      <div class="upload-box">
+        <h2 style="color: black;"><i class="fa-solid fa-file-csv"></i> Import from CSV</h2>
+        <form id="csv-form" action="/upload/csv" method="POST" enctype="multipart/form-data">
+          <input type="file" id="csv-file" name="csvFile" accept=".csv" required>
+          <button type="submit" class="btn"><i class="fa-solid fa-upload"></i> Upload CSV</button>
+        </form>
+        <p class="info">CSV Format: <b>Student Name, Class, Term, Subject, Score</b></p>
+      </div>
+
+    </section>
+  </main>
+</div>
+
+<script>
+    const menuBtn = document.getElementById('menu-btn');
+    const sidebar = document.getElementById('sidebar');
+    menuBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('active');
+    });
+</script>
+</body>
+</html>

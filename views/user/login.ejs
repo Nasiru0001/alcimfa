@@ -121,7 +121,7 @@
             </div>
 
             <!-- Student Login Form -->
-            <form action="/user/login" method="POST" class="login-form active" id="studentForm">
+            <form action="/login" method="POST" class="login-form active" id="studentForm">
               <h1 class="form-title">Student Login</h1>
               <div class="info-note">
                 <i class="fa fa-info-circle"></i> <strong>Students:</strong> Use your Email and PIN to login.
@@ -136,7 +136,7 @@
               <div class="input-container">
                 <label for="password">PIN</label><br>
                 <i class="fa fa-lock"></i>
-                <input type="password" id="password" name="password" placeholder="Enter your Pin" required>
+                <input type="password" id="password" name="password" placeholder="Enter your PIN" required>
               </div>
 
               <button type="submit">Login</button>
@@ -146,7 +146,7 @@
             </form>
 
             <!-- Parent Login Form -->
-            <form action="/user/login" method="POST" class="login-form" id="parentForm">
+            <form action="/login" method="POST" class="login-form" id="parentForm">
               <h1 class="form-title">Parent Login</h1>
               <div class="info-note">
                 <i class="fa fa-info-circle"></i> <strong>Parents:</strong> Use your registered email and password.
@@ -169,6 +169,10 @@
                 Don't have an account yet? <a href="/user/register" style="color: #2a5298; font-weight: 600;">Register here</a>
               </p>
             </form>
+
+            <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px dashed #d0d7de; font-size: 13.5px; color: #555;">
+              Are you a Teacher or Administrator? <a href="/admin/login" style="color: #2a5298; font-weight: 700; text-decoration: underline;"><i class="fa fa-user-tie"></i> Staff Portal Login</a>
+            </div>
           </div>
 
           <div class="info-box">
@@ -244,8 +248,66 @@
       event.target.closest('.role-tab').classList.add('active');
 
       document.querySelectorAll('.login-form').forEach(form => form.classList.remove('active'));
-      document.getElementById(role + 'Form').classList.add('active');
+      const targetForm = document.getElementById(role + 'Form');
+      if (targetForm) {
+        targetForm.classList.add('active');
+      }
     }
+
+    // Intercept login form submissions for fetch redirection
+    document.querySelectorAll('.login-form').forEach(form => {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Logging in...';
+
+        // Clear any previous dynamic alert
+        const oldAlert = form.querySelector('.dynamic-alert');
+        if (oldAlert) oldAlert.remove();
+
+        const formData = new FormData(form);
+        const payload = Object.fromEntries(formData.entries());
+
+        try {
+          const response = await fetch('/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            submitBtn.innerHTML = '✅ Redirecting...';
+            const userRole = (data.user && data.user.role) || '';
+            if (userRole === 'admin') {
+              window.location.href = '/admin/dashboard';
+            } else if (userRole === 'teacher') {
+              window.location.href = '/teacher/dashboard';
+            } else {
+              window.location.href = '/user/dashboard';
+            }
+          } else {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+            const alertBox = document.createElement('div');
+            alertBox.className = 'alert alert-error dynamic-alert';
+            alertBox.style.cssText = 'background:#f8d7da; color:#721c24; padding:10px 15px; border-radius:5px; margin-bottom:15px; margin-top:10px;';
+            alertBox.innerHTML = `❌ ${data.message || 'Invalid credentials'}`;
+            form.insertBefore(alertBox, form.querySelector('.input-container'));
+          }
+        } catch (err) {
+          console.error('Login submit error:', err);
+          // Fall back to standard form submission if fetch fails
+          form.submit();
+        }
+      });
+    });
   </script>
 </body>
 </html>

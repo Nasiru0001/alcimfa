@@ -1,5 +1,6 @@
 import express from "express";
 import { requireUserAuth, redirectIfLoggedIn } from "../middleware/renderMiddleware.js";
+import { loginUser } from "../controllers/userController.js";
 import User from "../models/userModel.js";
 import Student from "../models/studentModel.js";
 import Result from "../models/resultModel.js";
@@ -91,57 +92,7 @@ router.post("/register", async (req, res) => {
 });
 
 // Process login
-router.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    
-    const user = await User.findOne({ email }).select("+password");
-    if (!user) {
-      return res.render("user/login", { 
-        error: "Invalid email or password",
-        title: "User Login"
-      });
-    }
-    
-    if (!user.isActive) {
-      return res.render("user/login", { 
-        error: "Account is deactivated",
-        title: "User Login"
-      });
-    }
-    
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.render("user/login", { 
-        error: "Invalid email or password",
-        title: "User Login"
-      });
-    }
-    
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d"
-    });
-    
-    req.session.user = {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role
-    };
-    req.session.userToken = token;
-    
-    await user.updateLastLogin();
-    
-    res.redirect("/user/dashboard");
-  } catch (error) {
-    res.render("user/login", { 
-      error: "Login failed",
-      title: "User Login"
-    });
-  }
-});
-
-
+router.post("/login", loginUser);
 
 // Dashboard
 router.get("/dashboard", requireUserAuth, async (req, res) => {
@@ -191,8 +142,11 @@ router.get("/results", requireUserAuth, async (req, res) => {
 
 // Logout
 router.get("/logout", (req, res) => {
-  req.session.destroy();
-  res.redirect("/user/login");
+  res.clearCookie("token");
+  if (req.session) {
+    req.session.destroy(() => {});
+  }
+  res.redirect("/login");
 });
 
 export default router;
